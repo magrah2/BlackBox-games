@@ -35,6 +35,7 @@ void showColor(Rgb rgb);
 void showGameColors();
 
 void showError();
+void showEmptyBattery();
 
 void showCharging();
 void showPowerOn();

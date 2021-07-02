@@ -35,7 +35,9 @@ void menu() {
     }
 }
 
-
+void showEmptyBattery() {
+    error();
+}
 
 void charging() {
     auto& manager = Manager::singleton();

@@ -28,7 +28,8 @@ void app_main() {
     power.turnOnLDC();
 
     auto batteryCheck = timers.schedule(60000, [&]() {
-        Manager::singleton().power().checkBatteryLevel(3700, true);
+        if(!Manager::singleton().power().checkBatteryLevel(3700, true))
+            showEmptyBattery();
         return true;
     });
 
