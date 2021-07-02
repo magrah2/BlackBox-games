@@ -1,6 +1,16 @@
 #include "games.hpp"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include <cstdint>
+#include <chrono>
+#include <vector>
+
 #include "helpFunctions.hpp"
+
+using namespace std::literals::chrono_literals;
+
 
 void game0() {
     static uint8_t gameNum = 0;
@@ -115,14 +125,63 @@ void game2() {
     }
 }
 
+void inputing(int button) {
+    auto& doors = Manager::singleton().doors();
+
+    static std::vector<int> input;
+
+    constexpr int combinations[4][10] = {
+        { Y, G, B, Y, R, G, B, B, R, Y },
+        { B, B, G, G, R, Y, Y, G, B, R },
+        { R, Y, Y, B, G, R, Y, B, Y, G },
+        { Y, B, G, Y, R, B, Y, R, G, Y }
+    };
+
+    auto start = std::chrono::steady_clock::now();
+    input.clear();
+    do {
+        if (button != -1)
+            input.push_back(button);
+        if ((std::chrono::steady_clock::now() - start) >= 1min) {
+            showPowerOff();
+            input.clear();
+            return;
+        }
+        button = readButtons();
+    } while (input.size() <= 10);
+
+    for (int i = 0; i < 4; i++) {
+        int result = 1;
+        for (int j = 0; j < 10; j++) {
+            result *= (input[j] == combinations[i][j]);
+        }
+        if (result) {
+            doors[i].open();
+            showColor(gameColors[i]);
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
+            closeAllDors();
+            return;
+        }
+    }
+}
+
 void game3() {
-    static uint8_t gameNum = 3;
-    auto& power = Manager::singleton().power();
-    showColor(gameColors[gameNum]);
+    auto& manager
+        = Manager::singleton();
+    auto& power = manager.power();
+    auto& doors = Manager::singleton().doors();
+    showColor(gameColors[3]);
 
-    infinityLoop();
+    while (true) {
+        int button = -1;
+        button = readButtons();
+        if (button != -1) {
+            inputing(button);
+        }
 
-    if (power.usbConnected()) {
-        charging();
+        if (power.usbConnected()) {
+            charging();
+        }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
