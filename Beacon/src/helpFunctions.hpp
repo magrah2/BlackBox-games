@@ -30,7 +30,14 @@ void showError();
 void showCharging();
 void showPowerOn();
 void showPowerOff();
+void showLowVoltage();
 
 void infinityLoop();
 
 void charging();
+
+void openAllDors();
+void closeAllDors();
+
+void beacon(Rgb rgb = Rgb(255, 255, 255));
+bool readButton();

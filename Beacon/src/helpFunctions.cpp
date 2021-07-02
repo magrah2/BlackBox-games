@@ -3,12 +3,10 @@
 
 void menu() {
     auto& manager = Manager::singleton();
+    auto& doors = Manager::singleton().doors();
 
     showGameColors();
-
-    auto& doors = manager.doors();
-    for (auto &i : doors)
-        i.open();
+    // openAllDors();
 
     unsigned read = 0;
     while (!read) {
@@ -37,23 +35,33 @@ void menu() {
     }
 }
 
+
+
 void charging() {
-    auto& power = Manager::singleton().power();
+    auto& manager = Manager::singleton();
+    auto& power = manager.power();
     auto start = chrono::steady_clock::now();
 
 	#ifndef BB_DEBUG
     while (power.usbConnected()) {
         showCharging();
         vTaskDelay(200 / portTICK_PERIOD_MS);
+        cout << "Batt:" << manager.power().batteryVoltage() << " V - percent" << manager.power().batteryPercentage() << endl;
     }
-    if((chrono::steady_clock::now() - start) <= 5s) {
+    if((chrono::steady_clock::now() - start) <= 8s) {
+        openAllDors();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         menu();
     }        
     else {
+        closeAllDors();       
         showPowerOff();
         power.turnOff();
+        // power.turnOff5V();Manager::singleton()
     }
 	#else
+    openAllDors();
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 	menu();
 	#endif
 }
@@ -80,7 +88,7 @@ void showError() {
 	const int delay = 100;
 
     for(int i = 0; i <6; i++) {
-        ring.drawCircle(gameColors[5]);
+        ring.drawCircle(cError);
         ring.show();
         vTaskDelay(delay / portTICK_PERIOD_MS);
         ring.clear();
@@ -92,18 +100,21 @@ void showError() {
 void showCharging() {
 	auto& ring = Manager::singleton().ring();
 	auto& power = Manager::singleton().power();
-	ring.clear();
+	ring.setDarkModeValue(7);
+    ring.clear();
 	ring.show();
 
-    uint8_t percent =  power.batteryPercentage()*0.6;
+    uint8_t percent = power.batteryPercentage()*0.6;
 
-    cout << "Percent:" << percent;
+    // cout << "Percent:" << percent << "% ===";
 
 	for(int i = 0; i <percent; i++) {
-		ring[i] = gameColors[0];
+		ring[i] = cError;
 		ring.show();
-		vTaskDelay(20 / portTICK_PERIOD_MS);
+		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}
+
+    ring.setDarkModeValue(50);
 }
 
 void showPowerOn() {
@@ -113,7 +124,7 @@ void showPowerOn() {
     for(int i = 0; i <60; i++) {
         ring[i] = cWhite;
         ring.show();
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
@@ -124,7 +135,18 @@ void showPowerOff() {
 	for(int i = 0; i <60; i++) {
 		ring[i] = cBlack;
 		ring.show();
-		vTaskDelay(20 / portTICK_PERIOD_MS);
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+	}        
+}
+
+void showLowVoltage() {
+	auto& ring = Manager::singleton().ring();
+	ring.drawCircle(Rgb(200, 255, 0));
+	ring.show();
+	for(int i = 0; i <60; i++) {
+		ring[i] = cBlack;
+		ring.show();
+		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}        
 }
 
@@ -140,4 +162,64 @@ void infinityLoop() {
         }
 #endif
     }
+}
+
+void openAllDors() {
+    auto& doors = Manager::singleton().doors();
+    for (auto &i : doors)
+        i.open();
+}
+
+void closeAllDors() {
+    auto& doors = Manager::singleton().doors();
+    for (auto &i : doors)
+        i.close();
+}
+
+void beacon(Rgb rgb) {
+    auto& ring = Manager::singleton().ring();
+    static uint16_t pos = 60;
+    ring.clear();
+    ring[pos] = rgb;
+    ring.show();
+
+    pos++;
+
+    if(pos >= 111) {
+        pos = 60;
+    }
+}
+
+bool readButton() {
+    auto& ldc = Manager::singleton().ldc();
+    static int pressureNow;
+    static int pressureLast;
+    static bool firstRead = true;
+    bool pressNow;
+
+    if(firstRead) {
+        ldc.syncChannels();
+        pressureLast = ldc[0] + ldc[1] + ldc[2] + ldc[3];
+        firstRead = false;
+    }
+
+    ldc.syncChannels();
+
+    pressureNow = ldc[0] + ldc[1] + ldc[2] + ldc[3];
+
+    int diff = pressureNow - pressureLast;
+    if(diff < 0) {
+        diff = 0;
+    }
+    
+    if(diff >= 600000) {
+        pressNow = true;
+    }
+    else {
+        pressNow = false;
+    }
+    pressureLast = pressureNow;
+
+
+    return pressNow;
 }

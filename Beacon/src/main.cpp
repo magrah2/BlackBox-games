@@ -22,6 +22,7 @@ void app_main() {
     manager.init();
 
     auto& power = manager.power();
+    // power.turnOff();
     power.turnOn();
     power.turnOn5V();
     power.turnOnLDC();
