@@ -1,6 +1,5 @@
 #include "helpFunctions.hpp"
 
-
 void menu() {
     auto& manager = Manager::singleton();
     auto& doors = Manager::singleton().doors();
@@ -45,6 +44,7 @@ void charging() {
 	#ifndef BB_DEBUG
     while (power.usbConnected()) {
         showCharging();
+        // showPowerOff();
         vTaskDelay(200 / portTICK_PERIOD_MS);
         cout << "Batt:" << manager.power().batteryVoltage() << " V - percent" << manager.power().batteryPercentage() << endl;
     }
@@ -67,85 +67,115 @@ void charging() {
 }
 
 
-void showColor(Rgb rgb) {
-    auto& ring = Manager::singleton().ring();
-    ring.drawCircle(rgb);
-    ring.show();
+void showColorTop(Rgb rgb) {
+    auto& beacon = Manager::singleton().beacon();
+    for(int i = 0; i < 60; i++) {
+        beacon.top()[i] = rgb;
+    }
+    beacon.show(50);
+}
+
+void showColorPerim(Rgb rgb) {
+    auto& beacon = Manager::singleton().beacon();
+    for(int i = 0; i < 52; i++) {
+        beacon.perimeter()[i] = rgb;
+    }
+    beacon.show(50);
+}
+
+void clearAll() {
+    showColorPerim(cBlack);
+    showColorTop(cBlack);    
 }
 
 void showGameColors() {
-	auto& ring = Manager::singleton().ring();
-	ring.drawArc(cRed ,0, 14);      // red
-	ring.drawArc(cGreen, 15, 29);    // green
-	ring.drawArc(cYellow , 30, 44);   // orange
-	ring.drawArc(cBlue , 45, 59);    // blue
-	ring.show();
+	auto& beacon = Manager::singleton().beacon();
+	for(int i = 0; i <4; i++) {
+        for(int j = 0; j <12; j++) {
+            beacon.onSide(i, j) = gameColors[i];
+        }
+    }
+	beacon.show(50);
 }
 
 void showError() {
     auto& manager = Manager::singleton();
-    auto& ring = manager.ring();
+    auto& beacon = manager.beacon();
 	const int delay = 100;
 
+    clearAll();
+
     for(int i = 0; i <6; i++) {
-        ring.drawCircle(cError);
-        ring.show();
+        showColorPerim(cError);
         vTaskDelay(delay / portTICK_PERIOD_MS);
-        ring.clear();
-        ring.show();
+        showColorPerim(cBlack);
         vTaskDelay(delay / portTICK_PERIOD_MS);
     }
 }
 
+// void showCharging() {
+// 	auto& beacon = Manager::singleton().beacon();
+// 	auto& power = Manager::singleton().power();
+    
+//     clearAll();
+
+//     uint8_t percent = power.batteryPercentage()*0.6;
+
+//     // cout << "Percent:" << percent << "% ===";
+//     cError.stretchChannelsEvenly(8);
+
+// 	for(int i = 0; i <40; i++) {
+// 		beacon.perimeter()[i] = cError;
+// 		beacon.show();
+// 		vTaskDelay(10 / portTICK_PERIOD_MS);
+// 	}
+
+//     cError.stretchChannelsEvenly(50);
+// }
+
 void showCharging() {
-	auto& ring = Manager::singleton().ring();
-	auto& power = Manager::singleton().power();
-	ring.setDarkModeValue(7);
-    ring.clear();
-	ring.show();
+	auto& beacon = Manager::singleton().beacon();
+    auto& power = Manager::singleton().power();
 
-    uint8_t percent = power.batteryPercentage()*0.6;
 
-    // cout << "Percent:" << percent << "% ===";
-
-	for(int i = 0; i <percent; i++) {
-		ring[i] = cError;
-		ring.show();
-		vTaskDelay(10 / portTICK_PERIOD_MS);
-	}
-
-    ring.setDarkModeValue(50);
+    clearAll();
+    for(int i = 0; i <60; i++) {
+        beacon.top()[i] = cError;
+        beacon.show(5);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
 }
 
 void showPowerOn() {
-	auto& ring = Manager::singleton().ring();
-    ring.clear();
-    ring.show();
+	auto& beacon = Manager::singleton().beacon();
+    clearAll();
     for(int i = 0; i <60; i++) {
-        ring[i] = cWhite;
-        ring.show();
+        beacon.top()[i] = cWhite;
+        beacon.show(50);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
 void showPowerOff() {
-	auto& ring = Manager::singleton().ring();
-	ring.drawCircle(cWhite);
-	ring.show();
+	auto& beacon = Manager::singleton().beacon();
+	showColorTop(cWhite);
+    showColorPerim(cBlack);
+    
 	for(int i = 0; i <60; i++) {
-		ring[i] = cBlack;
-		ring.show();
+		beacon.top()[i] = cBlack;
+		beacon.show(50);
 		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}        
 }
 
 void showLowVoltage() {
-	auto& ring = Manager::singleton().ring();
-	ring.drawCircle(Rgb(200, 255, 0));
-	ring.show();
+	auto& beacon = Manager::singleton().beacon();
+    showColorPerim(cBlack);
+	showColorTop(Rgb(200, 255, 0));
+	beacon.show(50);
 	for(int i = 0; i <60; i++) {
-		ring[i] = cBlack;
-		ring.show();
+		beacon.top()[i] = cBlack;
+		beacon.show(50);
 		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}        
 }
@@ -176,17 +206,17 @@ void closeAllDors() {
         i.close();
 }
 
-void beacon(Rgb rgb) {
-    auto& ring = Manager::singleton().ring();
-    static uint16_t pos = 60;
-    ring.clear();
-    ring[pos] = rgb;
-    ring.show();
+void showBeacon(Rgb rgb) {
+    auto& beacon = Manager::singleton().beacon();
+    static uint16_t pos = 0;
+    showColorPerim(cBlack);
+    beacon.perimeter()[pos] = rgb;
+    beacon.show(50);
 
     pos++;
 
-    if(pos >= 111) {
-        pos = 60;
+    if(pos >= 52) {
+        pos = 0;
     }
 }
 
@@ -223,3 +253,73 @@ bool readButton() {
 
     return pressNow;
 }
+
+int calculateButton(int pressureNow[4], int pressureLast[4]){
+    int diferensions[4];
+    uint sumDif[4];
+    int output[2]; // 0 is button - 1 is value of difference
+    for (int a = 0; a < 4; a++){
+        diferensions[a] = abs(pressureLast[a] - pressureNow[a]);
+    }
+    for (int a = 0; a < 3; a++){
+        sumDif[a] = diferensions[a]+diferensions[a+1];
+    }
+    sumDif[3] = diferensions[3]+diferensions[0];
+    output[1] = sumDif[1];
+    for(int a = 0; a < 4; a++){
+    	if(sumDif[a] >= output[1]){
+            output[1] = sumDif[a];
+            output[0] = a;
+        }
+    }
+    printf("\n");
+    if(output[0] == 0){
+        output[0] = 2;
+    }
+    else if(output[0] == 2){
+        output[0] = 0;
+    }
+
+    return output[0];
+}
+
+int readButtons(){
+    auto& ldc = Manager::singleton().ldc();
+    auto& beacon = Manager::singleton().beacon();
+    int pressureNow[4];
+    static int pressureLast[4] = {0,0,0,0};
+    int pressureSumNow = 0;
+    int pressureSumLast = 0;
+    int pressNow = -1;
+    ldc.syncChannels();
+    for(int a = 0; a < 4; a++){
+        pressureNow[a] = ldc[a];
+        pressureSumNow += pressureNow[a];
+        pressureSumLast += pressureLast[a];
+    }
+    if(pressureSumLast == 0){
+        pressNow = -1;
+    }
+    else if(pressureSumNow - pressureSumLast > 400000){
+        pressNow = calculateButton(pressureNow, pressureLast);
+        beacon.top().fill(gameColors[pressNow]);
+        beacon.show();
+        // showColorTop(cBlue);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        beacon.top().clear();
+        beacon.show();
+    }
+    for (int a = 0; a < 4; a++)
+    {
+        pressureLast[a] = pressureNow[a];
+    }
+
+    if(pressNow != -1) {
+        cout << "RB:" << pressNow << endl;
+    }
+    return pressNow;
+}
+
+// int readBattery(){
+
+// }

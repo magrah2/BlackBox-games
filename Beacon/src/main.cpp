@@ -14,7 +14,6 @@ void menu();
 
 extern "C" {
 void app_main() {
-
     auto& manager = Manager::singleton();
 
     auto& timers = Timers::get();
@@ -27,22 +26,29 @@ void app_main() {
     power.turnOn5V();
     power.turnOnLDC();
 
+    // Manager::singleton().beacon().top().fill(cBlue);
+    // vTaskDelay(10000 / portTICK_PERIOD_MS);
+    // while(true){
+    //     int out = readButtons();
+    //     if(out != -1) {
+    //         cout << out << endl;
+    //     }
+    //     vTaskDelay(100 / portTICK_PERIOD_MS);
+    // }
+
     auto batteryCheck = timers.schedule(60000, [&]() {
         Manager::singleton().power().checkBatteryLevel(3700, true);
         return true;
     });
 
-    auto& ring = manager.ring();
-
-    ring.setDarkModeValue(50);
-    ring.enableDarkMode();
-    ring.rotate(8);
+    auto& beacon = manager.beacon();
 
     showPowerOn();
 
     while (true) {
         if (power.usbConnected()) {
             charging();
+            cout << power.batteryVoltage() << "V *** " << power.batteryPercentage() << "%" << endl;
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
