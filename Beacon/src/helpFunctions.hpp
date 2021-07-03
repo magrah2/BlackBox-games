@@ -39,6 +39,7 @@ void clearAll();
 void showGameColors();
 
 void showError();
+void showEmptyBattery();
 
 void showCharging();
 void showPowerOn();

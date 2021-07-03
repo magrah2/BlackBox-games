@@ -37,7 +37,8 @@ void app_main() {
     // }
 
     auto batteryCheck = timers.schedule(60000, [&]() {
-        Manager::singleton().power().checkBatteryLevel(3700, true);
+        if(!Manager::singleton().power().checkBatteryLevel(3700, true))
+            showEmptyBattery();
         return true;
     });
 
