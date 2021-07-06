@@ -6,13 +6,6 @@
 #include <chrono>
 #include <vector>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#include <cstdint>
-#include <chrono>
-#include <vector>
-
 #include "helpFunctions.hpp"
 
 using namespace std::literals::chrono_literals;
@@ -26,7 +19,7 @@ void game0() {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     // infinityLoop();
-    closeAllDors();
+    closeAllDoors();
     uint8_t state = 0; 
     uint32_t openStart;
 
@@ -43,7 +36,7 @@ void game0() {
             if(readButton()) {
                 state = 1;
                 openStart = esp_timer_get_time() / 1000LL;
-                openAllDors();
+                openAllDoors();
                 showColorTop(cRed);
             }
             break;
@@ -53,7 +46,7 @@ void game0() {
 
             if(openNow - openStart > 30000) {
                 state = 0;
-                closeAllDors();
+                closeAllDoors();
                 showColorTop(cBlack);
             }
             break;
@@ -72,39 +65,36 @@ void game1() {
 
     // infinityLoop();
 
-    closeAllDors();
+    closeAllDoors();
 
-    int activeCollor = abs((esp_random()/4294967296.0)*4);
-    int collorStart = esp_timer_get_time()/1000;
-    int openStart = esp_timer_get_time()/1000;
+    auto activeColor = esp_random() % 4;
+    auto colorStart = std::chrono::steady_clock::now();
+    auto openStart = std::chrono::steady_clock::now();
 
     while(true) {
         if (power.usbConnected()) {
             charging();
         }
 
+        showBeacon(gameColors[activeColor]);
 
-        showBeacon(gameColors[activeCollor]);
-        if(readButton()){
-            showColorTop(gameColors[activeCollor]);
-            doors[activeCollor].open();
-            openStart = esp_timer_get_time()/1000;
+        if (readButton()) {
+            showColorTop(gameColors[activeColor]);
+            doors[activeColor].open();
+            openStart = std::chrono::steady_clock::now();
         }
-        if((esp_timer_get_time()/1000) - openStart >= 20000)
-        {
-            closeAllDors();
+
+        if ((std::chrono::steady_clock::now() - openStart) >= 20s) {
+            closeAllDoors();
             showColorTop(cBlack);
-        }   
-
-        if((esp_timer_get_time()/1000) - collorStart > 12000000)
-        {
-            activeCollor += 1;
-            if(activeCollor >= 4)
-            {
-                activeCollor = 0;
-            }
-            collorStart = esp_timer_get_time()/1000;
         }
+
+        if ((std::chrono::steady_clock::now() - colorStart) >= 2min) {
+            activeColor++;
+            activeColor %= 4;
+            colorStart = std::chrono::steady_clock::now();
+        }
+
         vTaskDelay(30 / portTICK_PERIOD_MS);
 
     }
@@ -116,11 +106,17 @@ void game2() {
     auto& power = Manager::singleton().power();
     showColorPerim(gameColors[gameNum]);
 
-    infinityLoop();
+    for (int i = 0; i < 4; i++)
+        Manager::singleton().doors()[i].close();
+    
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    power.turnOff();
 
-    if (power.usbConnected()) {
-        charging();
-    }
+    // infinityLoop();
+
+    // if (power.usbConnected()) {
+    //     charging();
+    // }
 }
 
 void inputing(int button) {
@@ -143,6 +139,12 @@ void inputing(int button) {
     do {
         if(lastPressTime + 5s < std::chrono::steady_clock::now()){
             input.clear();
+            beacon.top().fill(cError);
+            beacon.show(25);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            beacon.top().clear();
+            beacon.show(25);
+            return;
         }
         if (button != -1){
             input.push_back(button);
@@ -154,7 +156,7 @@ void inputing(int button) {
         //     return;
         // }
         button = readButtons();
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(200 / portTICK_PERIOD_MS);
     } while (input.size() < 10);
 
     for (int i = 0; i < 4; i++) {
@@ -165,8 +167,8 @@ void inputing(int button) {
         if (result) {
             doors[i].open();
             showColorTop(gameColors[i]);
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
-            closeAllDors();
+            vTaskDelay(20000 / portTICK_PERIOD_MS);
+            closeAllDoors();
             return;
         }
     }
@@ -180,13 +182,15 @@ void game3() {
     clearAll();
     showGameColors();
     showColorTop(gameColors[3]);
-    closeAllDors();
+    closeAllDoors();
 
     while (true) {
         int button = -1;
         button = readButtons();
         cout << "Button:" << button << endl;
+        showColorTop(gameColors[3]);
         if (button != -1) {
+            manager.beacon().top().clear();
             inputing(button);
         }
 

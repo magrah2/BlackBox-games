@@ -50,8 +50,8 @@ void infinityLoop();
 
 void charging();
 
-void openAllDors();
-void closeAllDors();
+void openAllDoors();
+void closeAllDoors();
 
 void showBeacon(Rgb rgb = Rgb(255, 255, 255));
 
