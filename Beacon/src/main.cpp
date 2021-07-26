@@ -37,10 +37,8 @@ void app_main() {
     // }
 
     auto batteryCheck = timers.schedule(60000, [&]() {
-        if(!Manager::singleton().power().checkBatteryLevel(3700, true)){
+        if(!Manager::singleton().power().checkBatteryLevel(3700, !Manager::singleton().power().usbConnected())){
             showEmptyBattery();
-            vTaskDelay(10 / portTICK_PERIOD_MS);
-            power.turnOn();
         }
         return true;
     });
