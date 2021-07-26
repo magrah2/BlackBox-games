@@ -9,7 +9,13 @@
 #include "helpFunctions.hpp"
 
 using namespace std::literals::chrono_literals;
-
+void gameEnd(){
+    closeAllDoors();
+    clearAll();
+    switching_play_charge();
+   
+}
+//red game
 void game0() {
     static uint8_t gameNum = 0;
     auto& manager = Manager::singleton();
@@ -26,7 +32,7 @@ void game0() {
     while (true)
     {
         if (power.usbConnected()) {
-            charging();
+            gameEnd();
         }
 
         switch (state)
@@ -54,12 +60,13 @@ void game0() {
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
 }
-
+// green game
 void game1() {
     static uint8_t gameNum = 1;
     auto& manager = Manager::singleton();
     auto& power = manager.power();
     auto& doors = manager.doors();
+    bool openDoors = false;
     showColorPerim(gameColors[gameNum]);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
@@ -73,20 +80,22 @@ void game1() {
 
     while(true) {
         if (power.usbConnected()) {
-            charging();
+            gameEnd();
         }
 
         showBeacon(gameColors[activeColor]);
 
         if (readButton()) {
+            openDoors = true;
             showColorTop(gameColors[activeColor]);
             doors[activeColor].open();
             openStart = std::chrono::steady_clock::now();
         }
 
-        if ((std::chrono::steady_clock::now() - openStart) >= 20s) {
+        if (((std::chrono::steady_clock::now() - openStart) >= 20s)&&openDoors) {
             closeAllDoors();
             showColorTop(cBlack);
+            openDoors = false;
         }
 
         if ((std::chrono::steady_clock::now() - colorStart) >= 2min) {
@@ -100,7 +109,7 @@ void game1() {
     }
 
 }
-
+//yellow game
 void game2() {
     static uint8_t gameNum = 2;
     auto& power = Manager::singleton().power();
@@ -110,12 +119,13 @@ void game2() {
         Manager::singleton().doors()[i].close();
     
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    showPowerOff();
     power.turnOff();
 
     // infinityLoop();
 
     // if (power.usbConnected()) {
-    //     charging();
+    //     switching_play_charge();
     // }
 }
 
@@ -173,7 +183,7 @@ void inputing(int button) {
         }
     }
 }
-
+//blue game
 void game3() {
     auto& manager
         = Manager::singleton();
@@ -195,7 +205,7 @@ void game3() {
         }
 
         if (power.usbConnected()) {
-            charging();
+            gameEnd();
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }

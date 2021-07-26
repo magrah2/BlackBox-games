@@ -4,8 +4,10 @@ void menu() {
     auto& manager = Manager::singleton();
     auto& doors = Manager::singleton().doors();
 
+    openAllDoors();
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     showGameColors();
-    // openAllDoors();
+
 
     unsigned read = 0;
     while (!read) {
@@ -37,26 +39,70 @@ void menu() {
 void showEmptyBattery() {
     showError();
 }
+void showBattery(){
+    auto& manager = Manager::singleton();
+    auto& power = manager.power();
+    auto& beacon = Manager::singleton().beacon();
+    int charge = power.batteryPercentage(true);
+    int endPoint = 59 * charge / 100;
+    beacon.top().drawArc(cGreen, 0, endPoint, ArcType::Clockwise);
+    beacon.top().drawArc(cRed, endPoint, 59, ArcType::Clockwise);
+    beacon.show(16);   
+}
 
-void charging() {
+void charging(){
+    auto& manager = Manager::singleton();
+    auto& beacon = Manager::singleton().beacon();
+    showBattery();
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    beacon.clear();
+    beacon.show();
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+}
+
+void switching_play_charge() {
     auto& manager = Manager::singleton();
     auto& power = manager.power();
     auto start = chrono::steady_clock::now();
+    auto& doors = Manager::singleton().doors();
 
-#ifndef BB_DEBUG
-    while (power.usbConnected()) {
-        showCharging();
-        // showPowerOff();
+    #ifndef BB_DEBUG
+    clearAll();
+    closeAllDoors();
+    while ((power.usbConnected()) && ((chrono::steady_clock::now() - start) < 8s)) {
+        showBattery();
         vTaskDelay(200 / portTICK_PERIOD_MS);
-        cout << "Batt:" << manager.power().batteryVoltage() << " V - percent" << manager.power().batteryPercentage() << endl;
+
+    /*    int charge = power.batteryPercentage(true);
+        int endPoint = 59 * charge / 100;
+        beacon.top().drawArc(cGreen, 0, endPoint, ArcType::Clockwise);
+        beacon.top().drawArc(cRed, endPoint, 59, ArcType::Clockwise);
+        beacon.show(20);
+        vTaskDelay(300 / portTICK_PERIOD_MS);
+    
+        if ((chrono::steady_clock::now() - start) > 8s){
+        
+            beacon.clear();
+            beacon.show();
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+        */
+        std::cout << "Batt:" << power.batteryVoltage() << " mV - percent" << manager.power().batteryPercentage() << endl;    
     }
-    if ((chrono::steady_clock::now() - start) <= 8s) {
-        openAllDoors();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    while(power.usbConnected()) {
+        charging();
+    }
+       
+    
+    if ((chrono::steady_clock::now() - start) < 8s) {
+       // openAllDoors();
+        clearAll();
+        vTaskDelay(100 / portTICK_PERIOD_MS);
         menu();
     } else {
         closeAllDoors();
         showPowerOff();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         power.turnOff();
         // power.turnOff5V();Manager::singleton()
     }
@@ -69,13 +115,13 @@ void charging() {
 
 void showColorTop(Rgb rgb) {
     auto& beacon = Manager::singleton().beacon();
-        beacon.top().fill(rgb);
+    beacon.top().fill(rgb);
     beacon.show(25);
 }
 
 void showColorPerim(Rgb rgb) {
     auto& beacon = Manager::singleton().beacon();
-    beacon.fill(rgb);
+    beacon.perimeter().fill(rgb);
     beacon.show(25);
 }
 
@@ -94,7 +140,6 @@ void showGameColors() {
 
 void showError() {
     auto& manager = Manager::singleton();
-    auto& beacon = manager.beacon();
     const int delay = 100;
 
     clearAll();
@@ -126,7 +171,7 @@ void showError() {
 
 //     cError.stretchChannelsEvenly(50);
 // }
-
+/*
 void showCharging() {
     auto& beacon = Manager::singleton().beacon();
     auto& power = Manager::singleton().power();
@@ -138,7 +183,7 @@ void showCharging() {
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
-
+*/
 void showPowerOn() {
     auto& beacon = Manager::singleton().beacon();
     clearAll();
@@ -160,7 +205,7 @@ void showPowerOff() {
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
-
+/*
 void showLowVoltage() {
     auto& beacon = Manager::singleton().beacon();
     showColorPerim(cBlack);
@@ -172,7 +217,7 @@ void showLowVoltage() {
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
-
+*/
 void infinityLoop() {
     auto& power = Manager::singleton().power();
 
@@ -181,7 +226,7 @@ void infinityLoop() {
 
 #ifndef BB_DEBUG
         if (power.usbConnected()) {
-            charging();
+            switching_play_charge();
         }
 #endif
     }

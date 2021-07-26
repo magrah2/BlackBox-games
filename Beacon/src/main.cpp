@@ -37,8 +37,11 @@ void app_main() {
     // }
 
     auto batteryCheck = timers.schedule(60000, [&]() {
-        if(!Manager::singleton().power().checkBatteryLevel(3700, true))
+        if(!Manager::singleton().power().checkBatteryLevel(3700, true)){
             showEmptyBattery();
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+            power.turnOn();
+        }
         return true;
     });
 
@@ -48,8 +51,8 @@ void app_main() {
 
     while (true) {
         if (power.usbConnected()) {
-            charging();
-            cout << power.batteryVoltage() << "V *** " << power.batteryPercentage() << "%" << endl;
+            switching_play_charge();
+            cout << power.batteryVoltage(true) << "V *** " << power.batteryPercentage(false) << "%" << endl;
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
