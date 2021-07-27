@@ -48,7 +48,7 @@ void showLowVoltage();
 
 void infinityLoop();
 
-void charging();
+void switching_play_charge();
 
 void openAllDoors();
 void closeAllDoors();
