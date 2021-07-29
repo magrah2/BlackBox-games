@@ -14,6 +14,7 @@ void menu() {
         for (int i = 0; i < 4; i++) {
             read += (doors[i].tamperCheck()) << i;
         }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
     switch (read) {
@@ -107,8 +108,10 @@ void switching_play_charge() {
         // power.turnOff5V();Manager::singleton()
     }
 #else
-    openAllDoors();
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    clearAll();
+    closeAllDoors();
+
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     menu();
 #endif
 }
@@ -319,41 +322,54 @@ int calculateButton(int pressureNow[4], int pressureLast[4]) {
     return output[0];
 }
 
+bool isInRange(int value, int min, int max) {
+    return (value >= min) && (value <= max);
+}
+struct ButtonRead {
+    int button = -1;
+    bool change = false;
+};
+static Coords average;
+void updateAverage(Coords coords) {
+    if (average.pressure == 0) {
+        average.x = coords.x;
+        average.y = coords.y;
+        average.pressure = coords.pressure;
+    }
+    average.x = ((float(average.x) * 0.75) + coords.x) / 1.75;
+    average.y = ((float(average.y) * 0.75) + coords.y) / 1.75;
+    average.pressure = ((float(average.pressure) * 0.75) + coords.pressure) / 1.75;
+}
+
 int readButtons() {
-    auto& ldc = Manager::singleton().ldc();
-    auto& beacon = Manager::singleton().beacon();
-    int pressureNow[4];
-    static int pressureLast[4] = { 0, 0, 0, 0 };
-    int pressureSumNow = 0;
-    int pressureSumLast = 0;
-    int pressNow = -1;
-    ldc.syncChannels();
-    for (int a = 0; a < 4; a++) {
-        pressureNow[a] = ldc[a];
-        pressureSumNow += pressureNow[a];
-        pressureSumLast += pressureLast[a];
-    }
-    if (pressureSumLast == 0) {
-        pressNow = -1;
-    } else if (pressureSumNow - pressureSumLast > 400000) {
-        pressNow = calculateButton(pressureNow, pressureLast);
-        beacon.top().fill(gameColors[pressNow]);
-        beacon.show(25);
-        // showColorTop(cBlue);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-        beacon.top().clear();
-        beacon.show(25);
-        vTaskDelay(400 / portTICK_PERIOD_MS);
+    auto& ldc = Manager::singleton().touchpad();
+    static constexpr int pressureThreshold = 10;
+    static constexpr int coordThreshold = 20;
+    static int lastButton = -1;
+    Coords coords = ldc.calculate();
+    int quadrant = -1;
+    cout << coords.x << "\t"<< coords.y << "\t"<< coords.pressure << "\t";
+    cout << average.x << "\t"<< average.y << "\t"<< average.pressure << "\t";
+    cout << (coords.x - average.x) << "\t"<< (coords.y - average.y) << "\t"<< (coords.pressure - average.pressure) << "\n";
+    if ((coords.pressure - average.pressure) > pressureThreshold) {
+        if (!(isInRange((coords.x - average.x), -(coordThreshold*2), (coordThreshold*2)) && isInRange((coords.y - average.y), -(coordThreshold*2), (coordThreshold*2)))) {
+            if (isInRange((coords.x - average.x), -((coordThreshold*2)), (coordThreshold*2)))
+                quadrant = ((coords.y - average.y) > coordThreshold) ? 3 : 1;
+            else 
+                quadrant = ((coords.x - average.x) > coordThreshold) ? 0 : 2;
+        } else {
+            quadrant = -1;
+        }
+    } else if (((coords.pressure - average.pressure) < max((pressureThreshold/4), 1) && (coords.pressure - average.pressure) > -max((pressureThreshold/4), 1)))
+        updateAverage(coords);
 
-    }
-    for (int a = 0; a < 4; a++) {
-        pressureLast[a] = pressureNow[a];
-    }
+    ButtonRead out = {
+        .button = (lastButton != quadrant) ? quadrant : -1,
+        .change = lastButton != quadrant,
+    };
 
-    if (pressNow != -1) {
-        cout << "RB:" << pressNow << endl;
-    }
-    return pressNow;
+    lastButton = quadrant;
+    return out.button;
 }
 
 // int readBattery(){

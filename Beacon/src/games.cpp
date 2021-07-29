@@ -159,6 +159,12 @@ void inputing(int button) {
         }
         if (button != -1){
             input.push_back(button);
+            cout << button << endl;
+            beacon.top().fill(gameColors[button]);
+            beacon.show(25);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            beacon.top().clear();
+            beacon.show(25);
             lastPressTime = std::chrono::steady_clock::now();
         }
         // if ((std::chrono::steady_clock::now() - start) >= 1min) {
@@ -167,7 +173,7 @@ void inputing(int button) {
         //     return;
         // }
         button = readButtons();
-        vTaskDelay(400 / portTICK_PERIOD_MS);
+        // vTaskDelay(400 / portTICK_PERIOD_MS);
     } while (input.size() < 10);
 
     for (int i = 0; i < 4; i++) {
@@ -184,12 +190,19 @@ void inputing(int button) {
         }
     }
 }
+
+extern void updateAverage(Coords); 
 //blue game
 void game3() {
     auto& manager
         = Manager::singleton();
     auto& power = manager.power();
     auto& doors = Manager::singleton().doors();
+
+    Coords out = manager.touchpad().calculate(); // Calculate coordinates of touch
+
+    updateAverage(out);
+
     clearAll();
     showGameColors();
     showColorTop(gameColors[3]);
@@ -204,10 +217,6 @@ void game3() {
             manager.beacon().top().clear();
             manager.beacon().show(25);
             inputing(button);
-        }
-
-        if (power.usbConnected()) {
-            gameEnd();
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
