@@ -343,6 +343,8 @@ int readButtons() {
         vTaskDelay(100 / portTICK_PERIOD_MS);
         beacon.top().clear();
         beacon.show(25);
+        vTaskDelay(400 / portTICK_PERIOD_MS);
+
     }
     for (int a = 0; a < 4; a++) {
         pressureLast[a] = pressureNow[a];

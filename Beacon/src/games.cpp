@@ -151,9 +151,10 @@ void inputing(int button) {
             input.clear();
             beacon.top().fill(cError);
             beacon.show(25);
-            vTaskDelay(100 / portTICK_PERIOD_MS);
+            vTaskDelay(400 / portTICK_PERIOD_MS);
             beacon.top().clear();
             beacon.show(25);
+            vTaskDelay(400 / portTICK_PERIOD_MS);
             return;
         }
         if (button != -1){
@@ -166,7 +167,7 @@ void inputing(int button) {
         //     return;
         // }
         button = readButtons();
-        vTaskDelay(200 / portTICK_PERIOD_MS);
+        vTaskDelay(400 / portTICK_PERIOD_MS);
     } while (input.size() < 10);
 
     for (int i = 0; i < 4; i++) {
@@ -196,11 +197,12 @@ void game3() {
 
     while (true) {
         int button = -1;
+        showColorTop(cWhite);
         button = readButtons();
         cout << "Button:" << button << endl;
-        showColorTop(gameColors[3]);
         if (button != -1) {
             manager.beacon().top().clear();
+            manager.beacon().show(25);
             inputing(button);
         }
 
