@@ -343,14 +343,18 @@ void updateAverage(Coords coords) {
 
 int readButtons() {
     auto& ldc = Manager::singleton().touchpad();
+
     static constexpr int pressureThreshold = 10;
     static constexpr int coordThreshold = 20;
+
     static int lastButton = -1;
+
     Coords coords = ldc.calculate();
     int quadrant = -1;
     cout << coords.x << "\t"<< coords.y << "\t"<< coords.pressure << "\t";
     cout << average.x << "\t"<< average.y << "\t"<< average.pressure << "\t";
     cout << (coords.x - average.x) << "\t"<< (coords.y - average.y) << "\t"<< (coords.pressure - average.pressure) << "\n";
+    
     if ((coords.pressure - average.pressure) > pressureThreshold) {
         if (!(isInRange((coords.x - average.x), -(coordThreshold*2), (coordThreshold*2)) && isInRange((coords.y - average.y), -(coordThreshold*2), (coordThreshold*2)))) {
             if (isInRange((coords.x - average.x), -((coordThreshold*2)), (coordThreshold*2)))

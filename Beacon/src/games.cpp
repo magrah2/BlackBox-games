@@ -162,7 +162,7 @@ void inputing(int button) {
             cout << button << endl;
             beacon.top().fill(gameColors[button]);
             beacon.show(25);
-            vTaskDelay(100 / portTICK_PERIOD_MS);
+            vTaskDelay(300 / portTICK_PERIOD_MS);
             beacon.top().clear();
             beacon.show(25);
             lastPressTime = std::chrono::steady_clock::now();
@@ -216,8 +216,15 @@ void game3() {
         if (button != -1) {
             manager.beacon().top().clear();
             manager.beacon().show(25);
+            vTaskDelay(200 / portTICK_PERIOD_MS);
             inputing(button);
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
+
+#ifndef BB_DEBUG
+        if (power.usbConnected()) {
+            switching_play_charge();
+        }
+#endif
     }
 }
