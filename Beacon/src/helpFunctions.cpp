@@ -78,7 +78,7 @@ void switching_play_charge() {
         int endPoint = 59 * charge / 100;
         beacon.top().drawArc(cGreen, 0, endPoint, ArcType::Clockwise);
         beacon.top().drawArc(cRed, endPoint, 59, ArcType::Clockwise);
-        beacon.show(20);
+        beacon.show();
         vTaskDelay(300 / portTICK_PERIOD_MS);
     
         if ((chrono::steady_clock::now() - start) > 8s){
@@ -182,7 +182,7 @@ void showCharging() {
     clearAll();
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cError;
-        beacon.show(5);
+        beacon.show();
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
@@ -213,10 +213,10 @@ void showLowVoltage() {
     auto& beacon = Manager::singleton().beacon();
     showColorPerim(cBlack);
     showColorTop(Rgb(200, 255, 0));
-    beacon.show(25);
+    beacon.show();
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cBlack;
-        beacon.show(25);
+        beacon.show();
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }

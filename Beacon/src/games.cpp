@@ -2,18 +2,17 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 #include <vector>
 
 #include "helpFunctions.hpp"
 
 using namespace std::literals::chrono_literals;
-void gameEnd(){
+void gameEnd() {
     closeAllDoors();
     clearAll();
     switching_play_charge();
-   
 }
 //red game
 void game0() {
@@ -29,17 +28,17 @@ void game0() {
     uint8_t state = 0; 
     uint32_t openStart;
 
-    while (true)
-    {
+    while (true) {
+#ifndef BB_DEBUG
         if (power.usbConnected()) {
-            gameEnd();
+            switching_play_charge();
         }
+#endif
 
-        switch (state)
-        {
+        switch (state) {
         case 0:
             showBeacon();
-            if(readButton()) {
+            if (readButton()) {
                 state = 1;
                 openStart = esp_timer_get_time() / 1000LL;
                 openAllDoors();
@@ -50,7 +49,7 @@ void game0() {
             showBeacon();
             uint32_t openNow = esp_timer_get_time() / 1000LL;
 
-            if(openNow - openStart > 30000) {
+            if (openNow - openStart > 30000) {
                 state = 0;
                 closeAllDoors();
                 showColorTop(cBlack);
@@ -78,10 +77,12 @@ void game1() {
     auto colorStart = std::chrono::steady_clock::now();
     auto openStart = std::chrono::steady_clock::now();
 
-    while(true) {
+    while (true) {
+#ifndef BB_DEBUG
         if (power.usbConnected()) {
-            gameEnd();
+            switching_play_charge();
         }
+#endif
 
         showBeacon(gameColors[activeColor]);
 
@@ -92,7 +93,7 @@ void game1() {
             openStart = std::chrono::steady_clock::now();
         }
 
-        if (((std::chrono::steady_clock::now() - openStart) >= 20s)&&openDoors) {
+        if (((std::chrono::steady_clock::now() - openStart) >= 20s) && openDoors) {
             closeAllDoors();
             showColorTop(cBlack);
             openDoors = false;
@@ -105,9 +106,7 @@ void game1() {
         }
 
         vTaskDelay(30 / portTICK_PERIOD_MS);
-
     }
-
 }
 //yellow game
 void game2() {
@@ -147,7 +146,7 @@ void inputing(int button) {
     input.clear();
 
     do {
-        if(lastPressTime + 5s < std::chrono::steady_clock::now()){
+        if (lastPressTime + 5s < std::chrono::steady_clock::now()) {
             input.clear();
             beacon.top().fill(cError);
             beacon.show(25);
@@ -157,7 +156,7 @@ void inputing(int button) {
             vTaskDelay(400 / portTICK_PERIOD_MS);
             return;
         }
-        if (button != -1){
+        if (button != -1) {
             input.push_back(button);
             cout << button << endl;
             beacon.top().fill(gameColors[button]);
