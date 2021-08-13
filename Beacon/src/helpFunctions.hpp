@@ -32,6 +32,10 @@ enum Color {
 
 void menu();
 
+
+extern int g_lightIntensity;
+int lightIntensity();
+
 void showColorPerim(Rgb rgb);
 void showColorTop(Rgb rgb);
 void clearAll();
@@ -61,3 +65,8 @@ int calculateButton(int pressureNow[4], int pressureLast[4]);
 int readButtons();
 
 int readBattery();
+
+inline auto& manager = Manager::singleton();
+inline auto& doors = manager.doors();
+inline auto& power = manager.power();
+inline auto& beacon = manager.beacon();

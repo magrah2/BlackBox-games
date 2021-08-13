@@ -129,9 +129,6 @@ void game2() {
 }
 
 void inputing(int button) {
-    auto& doors = Manager::singleton().doors();
-    auto& beacon = Manager::singleton().beacon();
-
     static std::vector<int> input;
     auto lastPressTime = std::chrono::steady_clock::now();
 
@@ -149,10 +146,10 @@ void inputing(int button) {
         if (lastPressTime + 5s < std::chrono::steady_clock::now()) {
             input.clear();
             beacon.top().fill(cError);
-            beacon.show(25);
+            beacon.show(g_lightIntensity);
             vTaskDelay(400 / portTICK_PERIOD_MS);
             beacon.top().clear();
-            beacon.show(25);
+            beacon.show(g_lightIntensity);
             vTaskDelay(400 / portTICK_PERIOD_MS);
             return;
         }
@@ -160,10 +157,10 @@ void inputing(int button) {
             input.push_back(button);
             cout << button << endl;
             beacon.top().fill(gameColors[button]);
-            beacon.show(25);
+            beacon.show(g_lightIntensity);
             vTaskDelay(300 / portTICK_PERIOD_MS);
             beacon.top().clear();
-            beacon.show(25);
+            beacon.show(g_lightIntensity);
             lastPressTime = std::chrono::steady_clock::now();
         }
         // if ((std::chrono::steady_clock::now() - start) >= 1min) {
@@ -193,11 +190,6 @@ void inputing(int button) {
 extern void updateAverage(Coords); 
 //blue game
 void game3() {
-    auto& manager
-        = Manager::singleton();
-    auto& power = manager.power();
-    auto& doors = Manager::singleton().doors();
-
     Coords out = manager.touchpad().calculate(); // Calculate coordinates of touch
 
     updateAverage(out);
@@ -214,7 +206,7 @@ void game3() {
         cout << "Button:" << button << endl;
         if (button != -1) {
             manager.beacon().top().clear();
-            manager.beacon().show(25);
+            manager.beacon().show(g_lightIntensity);
             vTaskDelay(200 / portTICK_PERIOD_MS);
             inputing(button);
         }

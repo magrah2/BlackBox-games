@@ -1,20 +1,37 @@
 #include "helpFunctions.hpp"
+#include <array>
+
+void updateAverage(Coords coords);
+
+int g_lightIntensity = 25;
+
+int lightIntensity() {
+    constexpr array<int, 4> intensities = {255, 150, 50, 10};
+    for (int i = 0; i < 4; i++)
+        beacon.top().drawArc(Rgb(0, intensities[i], 0), i * 15, (i * 15) + 13, ArcType::Clockwise);
+    beacon.perimeter().clear();
+    beacon.show();
+    int button;
+    if((button = readButtons()) != -1)
+        return intensities[button];
+    return g_lightIntensity;
+}
 
 void menu() {
-    auto& manager = Manager::singleton();
-    auto& doors = Manager::singleton().doors();
-
+    updateAverage(manager.touchpad().calculate());
     openAllDoors();
     vTaskDelay(500 / portTICK_PERIOD_MS);
     showGameColors();
-
 
     unsigned read = 0;
     while (!read) {
         for (int i = 0; i < 4; i++) {
             read += (doors[i].tamperCheck()) << i;
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        g_lightIntensity = lightIntensity();
+        beacon.top().clear();
+        showGameColors();
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
     switch (read) {
@@ -40,63 +57,57 @@ void menu() {
 void showEmptyBattery() {
     showError();
 }
-void showBattery(){
-    auto& manager = Manager::singleton();
-    auto& power = manager.power();
-    auto& beacon = Manager::singleton().beacon();
+void showBattery() {
+
     int charge = power.batteryPercentage(true);
     int endPoint = 59 * charge / 100;
     beacon.top().drawArc(cGreen, 0, endPoint, ArcType::Clockwise);
     beacon.top().drawArc(cRed, endPoint, 59, ArcType::Clockwise);
-    beacon.show(16);   
+    beacon.show(g_lightIntensity);
 }
 
-void charging(){
-    auto& manager = Manager::singleton();
-    auto& beacon = Manager::singleton().beacon();
+void charging() {
+
     showBattery();
     vTaskDelay(200 / portTICK_PERIOD_MS);
     beacon.clear();
-    beacon.show();
+    beacon.show(g_lightIntensity);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
 
 void switching_play_charge() {
-    auto& manager = Manager::singleton();
-    auto& power = manager.power();
-    auto start = chrono::steady_clock::now();
-    auto& doors = Manager::singleton().doors();
 
-    #ifndef BB_DEBUG
+    auto start = chrono::steady_clock::now();
+
+#ifndef BB_DEBUG
     clearAll();
     closeAllDoors();
     while ((power.usbConnected()) && ((chrono::steady_clock::now() - start) < 8s)) {
         showBattery();
         vTaskDelay(200 / portTICK_PERIOD_MS);
 
-    /*    int charge = power.batteryPercentage(true);
+        /*    int charge = power.batteryPercentage(true);
         int endPoint = 59 * charge / 100;
         beacon.top().drawArc(cGreen, 0, endPoint, ArcType::Clockwise);
         beacon.top().drawArc(cRed, endPoint, 59, ArcType::Clockwise);
-        beacon.show();
+        beacon.show(g_lightIntensity);
         vTaskDelay(300 / portTICK_PERIOD_MS);
     
         if ((chrono::steady_clock::now() - start) > 8s){
         
             beacon.clear();
-            beacon.show();
+            beacon.show(g_lightIntensity);
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
         */
-        std::cout << "Batt:" << power.batteryVoltage() << " mV - percent" << manager.power().batteryPercentage() << endl;    
+        std::cout << "Batt:" << power.batteryVoltage() << " mV - percent" << manager.power().batteryPercentage() << endl;
     }
-    while(power.usbConnected()) {
+    while (power.usbConnected()) {
         charging();
     }
-       
-    
+
     if ((chrono::steady_clock::now() - start) < 8s) {
-       // openAllDoors();
+        // openAllDoors();
         clearAll();
         vTaskDelay(100 / portTICK_PERIOD_MS);
         menu();
@@ -105,7 +116,7 @@ void switching_play_charge() {
         showPowerOff();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         power.turnOff();
-        // power.turnOff5V();Manager::singleton()
+        // power.turnOff5V();manager
     }
 #else
     clearAll();
@@ -117,15 +128,15 @@ void switching_play_charge() {
 }
 
 void showColorTop(Rgb rgb) {
-    auto& beacon = Manager::singleton().beacon();
+
     beacon.top().fill(rgb);
-    beacon.show(25);
+    beacon.show(g_lightIntensity);
 }
 
 void showColorPerim(Rgb rgb) {
-    auto& beacon = Manager::singleton().beacon();
+
     beacon.perimeter().fill(rgb);
-    beacon.show(25);
+    beacon.show(g_lightIntensity);
 }
 
 void clearAll() {
@@ -134,15 +145,15 @@ void clearAll() {
 }
 
 void showGameColors() {
-    auto& beacon = Manager::singleton().beacon();
+
     for (int i = 0; i < 4; i++) {
         beacon.side(i).fill(gameColors[i]);
     }
-    beacon.show(25);
+    beacon.show(g_lightIntensity);
 }
 
 void showError() {
-    auto& manager = Manager::singleton();
+
     const int delay = 100;
 
     clearAll();
@@ -156,9 +167,8 @@ void showError() {
 }
 
 // void showCharging() {
-// 	auto& beacon = Manager::singleton().beacon();
-// 	auto& power = Manager::singleton().power();
-
+//
+//
 //     clearAll();
 
 //     uint8_t percent = power.batteryPercentage()*0.6;
@@ -168,7 +178,7 @@ void showError() {
 
 // 	for(int i = 0; i <40; i++) {
 // 		beacon.perimeter()[i] = cError;
-// 		beacon.show();
+// 		beacon.show(g_lightIntensity);
 // 		vTaskDelay(10 / portTICK_PERIOD_MS);
 // 	}
 
@@ -176,53 +186,51 @@ void showError() {
 // }
 /*
 void showCharging() {
-    auto& beacon = Manager::singleton().beacon();
-    auto& power = Manager::singleton().power();
-
+    
+    
     clearAll();
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cError;
-        beacon.show();
+        beacon.show(g_lightIntensity);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 */
 void showPowerOn() {
-    auto& beacon = Manager::singleton().beacon();
+
     clearAll();
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cWhite;
-        beacon.show(25);
+        beacon.show(g_lightIntensity);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
 void showPowerOff() {
-    auto& beacon = Manager::singleton().beacon();
+
     showColorTop(cWhite);
     showColorPerim(cBlack);
 
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cBlack;
-        beacon.show(25);
+        beacon.show(g_lightIntensity);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 /*
 void showLowVoltage() {
-    auto& beacon = Manager::singleton().beacon();
+    
     showColorPerim(cBlack);
     showColorTop(Rgb(200, 255, 0));
-    beacon.show();
+    beacon.show(g_lightIntensity);
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cBlack;
-        beacon.show();
+        beacon.show(g_lightIntensity);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 */
 void infinityLoop() {
-    auto& power = Manager::singleton().power();
 
     while (true) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -236,24 +244,22 @@ void infinityLoop() {
 }
 
 void openAllDoors() {
-    auto& doors = Manager::singleton().doors();
     for (auto& i : doors)
         i.open();
 }
 
 void closeAllDoors() {
-    auto& doors = Manager::singleton().doors();
     for (auto& i : doors)
         i.close();
     vTaskDelay(100 / portTICK_PERIOD_MS);
 }
 
 void showBeacon(Rgb rgb) {
-    auto& beacon = Manager::singleton().beacon();
+
     static uint16_t pos = 0;
     showColorPerim(cBlack);
     beacon.perimeter()[pos] = rgb;
-    beacon.show(25);
+    beacon.show(g_lightIntensity);
 
     pos++;
 
@@ -263,7 +269,7 @@ void showBeacon(Rgb rgb) {
 }
 
 bool readButton() {
-    auto& ldc = Manager::singleton().ldc();
+    auto& ldc = manager.ldc();
     static int pressureNow;
     static int pressureLast;
     static bool firstRead = true;
@@ -342,7 +348,7 @@ void updateAverage(Coords coords) {
 }
 
 int readButtons() {
-    auto& ldc = Manager::singleton().touchpad();
+    auto& ldc = manager.touchpad();
 
     static constexpr int pressureThreshold = 10;
     static constexpr int coordThreshold = 20;
@@ -351,20 +357,20 @@ int readButtons() {
 
     Coords coords = ldc.calculate();
     int quadrant = -1;
-    cout << coords.x << "\t"<< coords.y << "\t"<< coords.pressure << "\t";
-    cout << average.x << "\t"<< average.y << "\t"<< average.pressure << "\t";
-    cout << (coords.x - average.x) << "\t"<< (coords.y - average.y) << "\t"<< (coords.pressure - average.pressure) << "\n";
-    
+    cout << coords.x << "\t" << coords.y << "\t" << coords.pressure << "\t";
+    cout << average.x << "\t" << average.y << "\t" << average.pressure << "\t";
+    cout << (coords.x - average.x) << "\t" << (coords.y - average.y) << "\t" << (coords.pressure - average.pressure) << "\n";
+
     if ((coords.pressure - average.pressure) > pressureThreshold) {
-        if (!(isInRange((coords.x - average.x), -(coordThreshold*2), (coordThreshold*2)) && isInRange((coords.y - average.y), -(coordThreshold*2), (coordThreshold*2)))) {
-            if (isInRange((coords.x - average.x), -((coordThreshold*2)), (coordThreshold*2)))
+        if (!(isInRange((coords.x - average.x), -(coordThreshold * 2), (coordThreshold * 2)) && isInRange((coords.y - average.y), -(coordThreshold * 2), (coordThreshold * 2)))) {
+            if (isInRange((coords.x - average.x), -((coordThreshold * 2)), (coordThreshold * 2)))
                 quadrant = ((coords.y - average.y) > coordThreshold) ? 3 : 1;
-            else 
+            else
                 quadrant = ((coords.x - average.x) > coordThreshold) ? 0 : 2;
         } else {
             quadrant = -1;
         }
-    } else if (((coords.pressure - average.pressure) < max((pressureThreshold/4), 1) && (coords.pressure - average.pressure) > -max((pressureThreshold/4), 1)))
+    } else if (((coords.pressure - average.pressure) < max((pressureThreshold / 4), 1) && (coords.pressure - average.pressure) > -max((pressureThreshold / 4), 1)))
         updateAverage(coords);
 
     ButtonRead out = {
