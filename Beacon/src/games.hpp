@@ -8,3 +8,5 @@ void game0();
 void game1();
 void game2();
 void game3();
+
+void game4();

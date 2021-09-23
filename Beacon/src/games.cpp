@@ -25,7 +25,7 @@ void game0() {
 
     // infinityLoop();
     closeAllDoors();
-    uint8_t state = 0; 
+    uint8_t state = 0;
     uint32_t openStart;
 
     while (true) {
@@ -116,7 +116,7 @@ void game2() {
 
     for (int i = 0; i < 4; i++)
         Manager::singleton().doors()[i].close();
-    
+
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     showPowerOff();
     power.turnOff();
@@ -187,7 +187,7 @@ void inputing(int button) {
     }
 }
 
-extern void updateAverage(Coords); 
+extern void updateAverage(Coords);
 //blue game
 void game3() {
     Coords out = manager.touchpad().calculate(); // Calculate coordinates of touch
@@ -217,5 +217,71 @@ void game3() {
             switching_play_charge();
         }
 #endif
+    }
+}
+
+#include "library/BlackBox_timers.hpp"
+#include <bitset>
+
+void game4() {
+    auto& timers = Timers::get();
+    closeAllDoors();
+    std::bitset<4> activated;
+
+    while (true) {
+        activated = 0;
+
+        auto restStart = std::chrono::steady_clock::now();
+        beacon.fill(cBlack);
+        beacon.show(g_lightIntensity);
+
+        while (restStart + 5min > std::chrono::steady_clock::now()) {
+#ifndef BB_DEBUG
+            if (power.usbConnected()) {
+                switching_play_charge();
+            }
+#endif
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
+
+        auto start = std::chrono::steady_clock::now();
+
+        while (!activated.all() && (start + 60s > std::chrono::steady_clock::now())) {
+            int button = readButtons();
+            if (button != -1)
+                activated.set(button);
+            for (int i = 0; i < 4; i++)
+                beacon.top().drawArc(activated[i] ? cBlack : gameColors[i], i * 15, 15 + i * 15, ArcType::Clockwise);
+            beacon.perimeter().fill(cWhite);
+            beacon.perimeter().drawArc(cBlack, beacon.perimeter().count() - 1, std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count() * beacon.perimeter().count() / 60, ArcType::CounterClockwise);
+            std::cout << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count() * beacon.perimeter().count() / 60 << std::endl;
+            beacon.show(g_lightIntensity);
+
+#ifndef BB_DEBUG
+            if (power.usbConnected()) {
+                switching_play_charge();
+            }
+#endif
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
+        if (start + 60s > std::chrono::steady_clock::now()) {
+            std::cout << "open" << std::endl;
+            doors[esp_random() % 4].open();
+
+            auto openDoors = std::chrono::steady_clock::now();
+            for (int i = 0; i < beacon.perimeter().count(); i++) {
+                beacon.perimeter().fill(cRed);
+                beacon.perimeter().drawArc(cBlack, beacon.perimeter().count() - 1, i, ArcType::CounterClockwise);
+                beacon.show(g_lightIntensity);
+#ifndef BB_DEBUG
+                if (power.usbConnected()) {
+                    switching_play_charge();
+                }
+#endif
+                vTaskDelay(500 / portTICK_PERIOD_MS);
+            }
+            closeAllDoors();
+        } else
+            std::cout << "timeout" << std::endl;
     }
 }

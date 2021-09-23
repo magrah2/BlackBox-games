@@ -36,7 +36,7 @@ void menu() {
 
     switch (read) {
     case 1:
-        game0();
+        game4();
         break;
     case 2:
         game1();
@@ -350,8 +350,8 @@ void updateAverage(Coords coords) {
 int readButtons() {
     auto& ldc = manager.touchpad();
 
-    static constexpr int pressureThreshold = 10;
-    static constexpr int coordThreshold = 20;
+    static constexpr int pressureThreshold = 5;
+    static constexpr int coordThreshold = 10;
 
     static int lastButton = -1;
 
