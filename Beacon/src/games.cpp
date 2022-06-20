@@ -229,7 +229,7 @@ void game4() {
     std::bitset<4> activated;
 
     while (true) {
-        activated = 0;
+        activated = 0;        
 
         auto restStart = std::chrono::steady_clock::now();
         beacon.fill(cBlack);

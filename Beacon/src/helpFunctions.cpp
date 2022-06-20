@@ -36,7 +36,7 @@ void menu() {
 
     switch (read) {
     case 1:
-        game4();
+        game0();
         break;
     case 2:
         game1();
