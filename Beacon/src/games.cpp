@@ -9,13 +9,17 @@
 #include "helpFunctions.hpp"
 
 using namespace std::literals::chrono_literals;
+using namespace std::chrono;
+
+std::vector<std::function<void()>> games = { lightHouse, multiLightHouse, multiTreasure, ghosts, kingOfTheHill, fillMeInNoTime, mine, trains };
+
 void gameEnd() {
     closeAllDoors();
     clearAll();
     switching_play_charge();
 }
 //red game
-void game0() {
+void lightHouse() {
     static uint8_t gameNum = 0;
     auto& manager = Manager::singleton();
     auto& power = manager.power();
@@ -60,7 +64,7 @@ void game0() {
     }
 }
 // green game
-void game1() {
+void multiLightHouse() {
     static uint8_t gameNum = 1;
     auto& manager = Manager::singleton();
     auto& power = manager.power();
@@ -74,8 +78,8 @@ void game1() {
     closeAllDoors();
 
     auto activeColor = esp_random() % 4;
-    auto colorStart = std::chrono::steady_clock::now();
-    auto openStart = std::chrono::steady_clock::now();
+    auto colorStart = steady_clock::now();
+    auto openStart = steady_clock::now();
 
     while (true) {
 #ifndef BB_DEBUG
@@ -90,26 +94,26 @@ void game1() {
             openDoors = true;
             showColorTop(gameColors[activeColor]);
             doors[activeColor].open();
-            openStart = std::chrono::steady_clock::now();
+            openStart = steady_clock::now();
         }
 
-        if (((std::chrono::steady_clock::now() - openStart) >= 20s) && openDoors) {
+        if (((steady_clock::now() - openStart) >= 20s) && openDoors) {
             closeAllDoors();
             showColorTop(cBlack);
             openDoors = false;
         }
 
-        if ((std::chrono::steady_clock::now() - colorStart) >= 2min) {
+        if ((steady_clock::now() - colorStart) >= 2min) {
             activeColor++;
             activeColor %= 4;
-            colorStart = std::chrono::steady_clock::now();
+            colorStart = steady_clock::now();
         }
 
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
 }
-//yellow game
-void game2() {
+
+void powerOff() {
     static uint8_t gameNum = 2;
     auto& power = Manager::singleton().power();
     showColorPerim(gameColors[gameNum]);
@@ -130,7 +134,7 @@ void game2() {
 
 void inputing(int button) {
     static std::vector<int> input;
-    auto lastPressTime = std::chrono::steady_clock::now();
+    auto lastPressTime = steady_clock::now();
 
     constexpr int combinations[4][10] = {
         { Y, G, B, Y, R, G, B, B, R, Y },
@@ -139,11 +143,11 @@ void inputing(int button) {
         { Y, B, G, Y, R, B, Y, R, G, Y }
     };
 
-    auto start = std::chrono::steady_clock::now();
+    auto start = steady_clock::now();
     input.clear();
 
     do {
-        if (lastPressTime + 5s < std::chrono::steady_clock::now()) {
+        if (lastPressTime + 5s < steady_clock::now()) {
             input.clear();
             beacon.top().fill(cError);
             beacon.show(g_lightIntensity);
@@ -161,9 +165,9 @@ void inputing(int button) {
             vTaskDelay(300 / portTICK_PERIOD_MS);
             beacon.top().clear();
             beacon.show(g_lightIntensity);
-            lastPressTime = std::chrono::steady_clock::now();
+            lastPressTime = steady_clock::now();
         }
-        // if ((std::chrono::steady_clock::now() - start) >= 1min) {
+        // if ((steady_clock::now() - start) >= 1min) {
         //     showPowerOff();
         //     input.clear();
         //     return;
@@ -189,7 +193,7 @@ void inputing(int button) {
 
 extern void updateAverage(Coords);
 //blue game
-void game3() {
+void multiTreasure() {
     Coords out = manager.touchpad().calculate(); // Calculate coordinates of touch
 
     updateAverage(out);
@@ -212,76 +216,472 @@ void game3() {
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
 
-#ifndef BB_DEBUG
-        if (power.usbConnected()) {
-            switching_play_charge();
-        }
-#endif
+        CHECK_USB();
     }
 }
 
 #include "library/BlackBox_timers.hpp"
 #include <bitset>
 
-void game4() {
+void ghosts() {
     auto& timers = Timers::get();
     closeAllDoors();
     std::bitset<4> activated;
 
     while (true) {
-        activated = 0;        
+        activated = 0;
 
-        auto restStart = std::chrono::steady_clock::now();
+        auto restStart = steady_clock::now();
         beacon.fill(cBlack);
         beacon.show(g_lightIntensity);
 
-        while (restStart + 5min > std::chrono::steady_clock::now()) {
-#ifndef BB_DEBUG
-            if (power.usbConnected()) {
-                switching_play_charge();
-            }
-#endif
+        while (restStart + 5min > steady_clock::now()) {
+            CHECK_USB();
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
 
-        auto start = std::chrono::steady_clock::now();
+        auto start = steady_clock::now();
 
-        while (!activated.all() && (start + 60s > std::chrono::steady_clock::now())) {
+        while (!activated.all() && (start + 60s > steady_clock::now())) {
             int button = readButtons();
             if (button != -1)
                 activated.set(button);
             for (int i = 0; i < 4; i++)
                 beacon.top().drawArc(activated[i] ? cBlack : gameColors[i], i * 15, 15 + i * 15, ArcType::Clockwise);
             beacon.perimeter().fill(cWhite);
-            beacon.perimeter().drawArc(cBlack, beacon.perimeter().count() - 1, std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count() * beacon.perimeter().count() / 60, ArcType::CounterClockwise);
-            std::cout << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count() * beacon.perimeter().count() / 60 << std::endl;
+            beacon.perimeter().drawArc(cBlack, beacon.perimeter().count() - 1, duration_cast<seconds>(steady_clock::now() - start).count() * beacon.perimeter().count() / 60, ArcType::CounterClockwise);
+            std::cout << duration_cast<seconds>(steady_clock::now() - start).count() * beacon.perimeter().count() / 60 << std::endl;
             beacon.show(g_lightIntensity);
 
-#ifndef BB_DEBUG
-            if (power.usbConnected()) {
-                switching_play_charge();
-            }
-#endif
+            CHECK_USB();
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
-        if (start + 60s > std::chrono::steady_clock::now()) {
+        if (start + 60s > steady_clock::now()) {
             std::cout << "open" << std::endl;
             doors[esp_random() % 4].open();
 
-            auto openDoors = std::chrono::steady_clock::now();
+            auto openDoors = steady_clock::now();
             for (int i = 0; i < beacon.perimeter().count(); i++) {
                 beacon.perimeter().fill(cRed);
                 beacon.perimeter().drawArc(cBlack, beacon.perimeter().count() - 1, i, ArcType::CounterClockwise);
                 beacon.show(g_lightIntensity);
-#ifndef BB_DEBUG
-                if (power.usbConnected()) {
-                    switching_play_charge();
-                }
-#endif
+                CHECK_USB();
                 vTaskDelay(500 / portTICK_PERIOD_MS);
             }
             closeAllDoors();
         } else
             std::cout << "timeout" << std::endl;
+    }
+}
+
+void showState(std::array<unsigned, 4>& states) {
+    uint64_t sum = 0;
+    for (int i = 0; i < states.size(); i++) {
+        sum += states[i];
+    }
+
+    unsigned index = 0;
+    beacon.top().clear();
+    for (int i = 0; i < 4; i++) {
+        beacon.top().drawArc(gameColors[i], index, index + (states[i] * 60) / sum, ArcType::Clockwise);
+        index += (states[i] * 60) / sum;
+    }
+    beacon.show(g_lightIntensity);
+}
+
+void kingOfTheHill() {
+    std::array<unsigned, 4> states = { 15, 15, 15, 15 };
+    int activeColor = -1;
+    showGameColors();
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+
+    while (true) {
+        if (activeColor == -1) {
+            showState(states);
+            while (activeColor == -1) {
+                for (int i = 0; i < 4; i++) {
+                    if (doors[i].tamperCheck()) {
+                        activeColor = i;
+                        break;
+                    }
+                }
+                CHECK_USB();
+                vTaskDelay(10 / portTICK_PERIOD_MS);
+            }
+            doors[activeColor].close();
+            showColorTop(gameColors[activeColor]);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            showColorTop(cBlack);
+        }
+
+        int counter = 0;
+        while (!readButton()) {
+            if (counter == 10) {
+                states[activeColor]++;
+                counter = 0;
+            }
+            counter++;
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            showState(states);
+            CHECK_USB();
+        }
+
+        openAllDoors();
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        activeColor = -1;
+
+        CHECK_USB();
+    }
+}
+
+void fillMeInNoTime() {
+    int state = 0;
+
+    unsigned count = 59;
+
+    auto startTime = steady_clock::now();
+
+    enum {
+        Init = 0,
+        Open,
+        Closed,
+        LockDown,
+        LockdownPressed,
+    };
+
+    std::bitset<4> votes = 0;
+
+    while (true) {
+        CHECK_USB();
+
+        if (state == Init) {
+            showColorTop(cGreen);
+            showGameColors();
+            openAllDoors();
+            vTaskDelay(300 / portTICK_PERIOD_MS);
+            count = 60;
+            state = 1;
+        }
+
+        if (state == Open) {
+            unsigned read = 0;
+            for (auto& door : doors)
+                read += door.tamperCheck();
+
+            if (read == 4) {
+                startTime = steady_clock::now();
+                closeAllDoors();
+                state = 2;
+            }
+        }
+
+        if (state == Closed) {
+            if (steady_clock::now() - startTime >= 3s) {
+                count--;
+                startTime = steady_clock::now();
+                beacon.top().clear();
+                beacon.top().drawArc(cGreen, 0, count, BlackBox::ArcType::Clockwise);
+                beacon.show(g_lightIntensity);
+            }
+
+            if (readButton()) {
+                openAllDoors();
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+                state = 1;
+            }
+
+            if (count == 0) {
+                state = LockDown;
+                closeAllDoors();
+                for (int i = 0; i < 2; i++) {
+                    showColorPerim(cRed);
+                    vTaskDelay(200 / portTICK_PERIOD_MS);
+                    showColorPerim(cBlack);
+                    vTaskDelay(200 / portTICK_PERIOD_MS);
+                }
+                showGameColors();
+                votes.reset();
+            }
+        }
+
+        if (state == LockDown) {
+            int btn;
+            if ((btn = readButtons()) != -1) {
+                votes.set(btn);
+                vTaskDelay(500 / portTICK_PERIOD_MS);
+            }
+
+            Rgb color;
+            for (int i = 0; i < 4; i++) {
+                (color = gameColors[i]).stretchChannelsEvenly(votes[i] ? 255 : 75);
+                beacon.top().drawArc(color, i * 15, 15 + i * 15, BlackBox::ArcType::Clockwise);
+            };
+            beacon.show(g_lightIntensity);
+
+            if (votes.all())
+                state = Init;
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
+void mine() {
+    enum {
+        Init = 0,
+        Closed,
+        Open,
+        Upgrade,
+        Confirmation
+    };
+
+    int state = Init;
+
+    auto startTime = steady_clock::now();
+
+    int btn = -1;
+
+    std::array<int, 4> levels = { 1, 1, 1, 1 };
+    while (true) {
+        CHECK_USB();
+
+        if (state == Init) {
+            for (size_t i = 0; i < 4; i++)
+                beacon.top().drawArc(gameColors[i], i * 15, i * 15 + 15, BlackBox::ArcType::Clockwise);
+
+            closeAllDoors();
+            showColorPerim(cBlack);
+            vTaskDelay(300 / portTICK_PERIOD_MS);
+            state = Closed;
+        }
+
+        if (state == Closed) {
+            btn = readButtons();
+
+            showBeacon();
+
+            if (btn != -1) {
+                for (size_t i = 0; i < levels[btn]; i++)
+                    doors[i].open();
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+                startTime = steady_clock::now();
+                state = Open;
+            }
+        }
+
+        if (state == Open) {
+            int read = 0;
+            for (auto& door : doors)
+                read += door.readTamperCheckButton();
+
+            if (read == 0) {
+                closeAllDoors();
+                showColorPerim(gameColors[btn]);
+                showColorTop(gameColors[btn]);
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+                startTime = steady_clock::now();
+                state = Upgrade;
+
+            } else if (steady_clock::now() - startTime >= 5s) {
+                closeAllDoors();
+                for (size_t i = 0; i < 4; i++)
+                    beacon.top().drawArc(gameColors[i], i * 15, i * 15 + 15, BlackBox::ArcType::Clockwise);
+                beacon.show(g_lightIntensity);
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+                state = Closed;
+            }
+        }
+
+        if (state == Upgrade) {
+            if (steady_clock::now() - startTime >= 10s) {
+                state = Closed;
+            } else if (readButton()) {
+                for (size_t i = 0; i < 4; i++)
+                    beacon.top().drawArc(gameColors[i], i * 15, i * 15 + 15, BlackBox::ArcType::Clockwise);
+                beacon.show(g_lightIntensity);
+
+                if (levels[btn] < 4)
+                    levels[btn]++;
+
+                for (size_t i = 0; i < levels[btn]; i++)
+                    doors[i].open();
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+                startTime = steady_clock::now();
+                state = Open;
+            }
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
+static auto getLogicLevels() {
+    int x = doors[0].tamperCheck() - 1 * doors[1].tamperCheck();
+    int y = doors[2].tamperCheck() - 1 * doors[3].tamperCheck();
+    return std::make_pair(x, y);
+}
+
+void trains() {
+    struct Operator {
+        Rgb color;
+        std::function<int(int, int)> op;
+        int operator()(int x, int y) {
+            if (!x && !y)
+                return 0;
+            return op(x, y);
+        }
+    };
+
+    Operator AND = {
+        .color = cGreen,
+        .op = [](int x, int y) {
+            if (!x || !y)
+                return 0;
+            return (x == 1 && y == 1) ? 1 : -1;
+        }
+    };
+
+    Operator OR = {
+        .color = cBlue,
+        .op = [](int x, int y) {
+            if (!x || !y)
+                return 0;
+            return ((x == 1 && y == -1)
+                       || (x == -1 && y == 1)
+                       || (x == 1 && y == 1))
+                ? 1
+                : -1;
+        }
+    };
+
+    Operator NAND = {
+        .color = cPink,
+        .op = [](int x, int y) {
+            if (!x || !y)
+                return 0;
+            return ((x == 1 && y == -1)
+                       || (x == -1 && y == 1)
+                       || (x == -1 && y == -1))
+                ? 1
+                : -1;
+        }
+    };
+
+    Operator XOR = {
+        .color = cYellow,
+        .op = [](int x, int y) {
+            if (!x || !y)
+                return 0;
+            return ((x == 1 && y == -1)
+                       || (x == -1 && y == 1))
+                ? 1
+                : -1;
+        }
+    };
+
+    std::array operators = { AND, OR, NAND, XOR };
+
+    enum {
+        Init,
+        Reading,
+        Switching,
+        Fail,
+        Timeout,
+    };
+
+    int state = Init;
+
+    Circular::CircularInteger<4> direction = esp_random() % 4;
+    int activeOperator = esp_random() % 4;
+
+    unsigned errors = 0;
+    bool pressed = false;
+
+    auto startTime = steady_clock::now();
+    auto originTime = steady_clock::now();
+
+    int blink = true;
+
+    openAllDoors();
+    vTaskDelay(300 / portTICK_PERIOD_MS);
+
+    while (true) {
+        CHECK_USB();
+        for (int i = 0; i < 4; i++) {
+            beacon.side(i).fill((i == direction) ? cWhite : cBlack);
+        }
+        beacon.show(g_lightIntensity);
+
+        if (state == Init) {
+            errors = 0;
+            int tmp;
+            while ((tmp = esp_random() % 4) == activeOperator) {
+            }
+            activeOperator = tmp;
+            state = Reading;
+        }
+
+        auto& active = operators[activeOperator];
+
+        if (state == Reading) {
+            showColorTop(active.color);
+            auto [x, y] = getLogicLevels();
+            if (x && y) {
+                int out = active(x, y);
+                if (out == 1) {
+                    state = Switching;
+                    originTime = steady_clock::now();
+                    startTime = steady_clock::now();
+                    pressed = false;
+                } else if (out == -1) {
+                    errors++;
+                    vTaskDelay(300 / portTICK_PERIOD_MS);
+                }
+            }
+
+            if (errors >= 3)
+                state = Fail;
+        }
+
+        if (state == Switching) {
+            if (steady_clock::now() - startTime >= (pressed ? 3s : 10s) || steady_clock::now() - originTime >= 30s) {
+                startTime = steady_clock::now();
+                state = Timeout;
+            }
+
+            if (readButton()) {
+                ++direction;
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+            }
+
+            for (int i = 0; i < 4; i++) {
+                beacon.side(i).fill((blink <= 5 && i == direction) ? cWhite : cBlack);
+                beacon.top().drawArc((blink <= 5 && i == direction) ? cWhite : cBlack,
+                    i * 15, i * 15 + 15, BlackBox::ArcType::Clockwise);
+            }
+            beacon.show(g_lightIntensity);
+            (++blink) %= 10;
+        }
+
+        if (state == Fail) {
+            for (int i = 0; i < 4; i++) {
+                showColorPerim(cRed);
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+                showColorPerim(cBlack);
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+            }
+            startTime = steady_clock::now();
+            state = Timeout;
+        }
+
+        if (state == Timeout) {
+            if (steady_clock::now() - startTime >= 30s)
+                state = Init;
+            beacon.top().fill(cBlack);
+            beacon.top().drawArc(cWhite, 0, duration_cast<seconds>(steady_clock::now() - startTime).count() * 2, BlackBox::ArcType::Clockwise);
+            beacon.show(g_lightIntensity);
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }

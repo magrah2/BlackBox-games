@@ -5,14 +5,18 @@ void updateAverage(Coords coords);
 
 int g_lightIntensity = 25;
 
-int lightIntensity() {
-    constexpr array<int, 4> intensities = {255, 150, 50, 10};
-    for (int i = 0; i < 4; i++)
-        beacon.top().drawArc(Rgb(0, intensities[i], 0), i * 15, (i * 15) + 13, ArcType::Clockwise);
+int lightIntensity(Rgb rgb) {
+    constexpr array<int, 4> intensities = { 255, 150, 50, 10 };
+
+    for (int i = 0; i < 4; i++) {
+        auto tmp = rgb;
+        tmp.stretchChannelsEvenly(intensities[i]);
+        beacon.top().drawArc(tmp, i * 15, (i * 15) + 13, ArcType::Clockwise);
+    }
     beacon.perimeter().clear();
     beacon.show();
     int button;
-    if((button = readButtons()) != -1)
+    if ((button = readButtons()) != -1)
         return intensities[button];
     return g_lightIntensity;
 }
@@ -23,34 +27,26 @@ void menu() {
     vTaskDelay(500 / portTICK_PERIOD_MS);
     showGameColors();
 
-    unsigned read = 0;
-    while (!read) {
-        for (int i = 0; i < 4; i++) {
-            read += (doors[i].tamperCheck()) << i;
-        }
-        g_lightIntensity = lightIntensity();
-        beacon.top().clear();
-        showGameColors();
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-
-    switch (read) {
-    case 1:
-        game0();
-        break;
-    case 2:
-        game1();
-        break;
-    case 4:
-        game2();
-        break;
-    case 8:
-        game3();
-        break;
-    default:
-        showError();
-        // menu();
-        break;
+    for (int floor = 0;; floor++) {
+        if (floor == games.size() / 3 + (games.size() % 3 != 0))
+            floor = 0;
+        bool flag = true;
+        do {
+            for (int i = 0; i < 4; i++) {
+                if (doors[i].tamperCheck()) {
+                    flag = false;
+                    if (i == 3) {
+                        vTaskDelay(500 / portTICK_PERIOD_MS);
+                        break;
+                    }
+                    games[3 * floor + i]();
+                }
+            }
+            g_lightIntensity = lightIntensity(gameColors[floor]);
+            beacon.top().clear();
+            showGameColors();
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+        } while (flag);
     }
 }
 
