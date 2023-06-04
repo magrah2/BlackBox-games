@@ -9,6 +9,15 @@
 
 using namespace std::literals::chrono_literals;
 
+uint32_t get_i2s_val(i2s_port_t i2s_num) {
+    constexpr std::size_t n = 1;
+    std::size_t read = 0;
+    uint32_t bytes[n];
+    i2s_read(i2s_num, bytes, sizeof(uint32_t) * n, &read, 100000 / portTICK_PERIOD_MS);
+    bytes[0] >>= (32 - 18);
+    return bytes[0];
+}
+
 extern "C" {
 void app_main() {
     auto& manager = BlackBox::Manager::singleton();
@@ -42,28 +51,36 @@ void app_main() {
         side[i] = Rgb(0, 0, 0);
     }
 
-    float t = 0.f;
-    while (true) {
-        constexpr std::size_t n = 128;
-        std::size_t read = 0;
-        uint8_t bytes[n];
-        i2s_read(i2s_num, bytes, n, &read, 100000 / portTICK_PERIOD_MS);
+    int32_t last = get_i2s_val(i2s_num);
 
-        std::cout << int(read) << ":";
-        for (uint8_t v : bytes) {
-            std::cout << int(v) << ",";
+    int sum = 0;
+    while (true) {
+        int32_t n = get_i2s_val(i2s_num);
+        int32_t v = n - last;
+        last = n;
+
+        //std::cout << v << std::endl;
+
+        int v2 = abs(v);
+        if (v2 < 16) {
+            v2 = 0;
         }
-        std::cout << std::endl;
+        v2 = std::min(v2, 3200);
+        sum += v2;
+
+        int m = sum / 64;
+
+        std::cout << sum << "\t" << m << "\t" << v2 << std::endl;
+
+        sum = std::clamp(sum - 128, 0, 32000);
 
         for (unsigned i = 0; i < perim.count(); i++) {
-            perim[i] = Rgb(255, 191, 0);
+            perim[i] = Rgb(sum > 2000 ? 255 : 0, std::min(m, 255), 0);
         }
 
-        int ival = 64 * std::sin(t) + 128;
-        manager.beacon().show(ival);
+        manager.beacon().show(255);
 
-        t += 0.01f;
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 }

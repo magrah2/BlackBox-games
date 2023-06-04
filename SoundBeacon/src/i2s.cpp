@@ -17,7 +17,7 @@ void setup_i2s(i2s_port_t i2s_num) {
         .bck_io_num = 27, // J8
         .ws_io_num = 25, // J10
         .data_out_num = I2S_PIN_NO_CHANGE,
-        .data_in_num = 19, // J12
+        .data_in_num = 13, // J12
     };
 
     esp_err_t res;
