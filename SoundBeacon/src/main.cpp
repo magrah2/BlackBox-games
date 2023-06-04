@@ -18,6 +18,27 @@ uint32_t get_i2s_val(i2s_port_t i2s_num) {
     return bytes[0];
 }
 
+struct sound_accum {
+
+    void push(int32_t v) {
+        sum += v;
+    }
+
+    bool is_triggered() {
+        return sum > trigger_val;
+    }
+
+    void tick() {
+        sum = std::clamp(sum - decay, 0, max_sum);
+    }
+
+    int32_t sum = 0;
+
+    int32_t decay = 128;
+    int32_t trigger_val = 2000;
+    int32_t max_sum = 32000;
+};
+
 extern "C" {
 void app_main() {
     auto& manager = BlackBox::Manager::singleton();
@@ -53,7 +74,7 @@ void app_main() {
 
     int32_t last = get_i2s_val(i2s_num);
 
-    int sum = 0;
+    sound_accum acc;
     while (true) {
         int32_t n = get_i2s_val(i2s_num);
         int32_t v = n - last;
@@ -62,23 +83,19 @@ void app_main() {
         //std::cout << v << std::endl;
 
         int v2 = abs(v);
-        if (v2 < 16) {
-            v2 = 0;
-        }
         v2 = std::min(v2, 3200);
-        sum += v2;
+        acc.push(v2);
 
-        int m = sum / 64;
+        int m = acc.sum / 64;
 
-        std::cout << sum << "\t" << m << "\t" << v2 << std::endl;
-
-        sum = std::clamp(sum - 128, 0, 32000);
+        //std::cout << acc.sum << "\t" << m << "\t" << v2 << std::endl;
 
         for (unsigned i = 0; i < perim.count(); i++) {
-            perim[i] = Rgb(sum > 2000 ? 255 : 0, std::min(m, 255), 0);
+            perim[i] = Rgb(acc.is_triggered() ? 255 : 0, std::min(m, 255), 0);
         }
 
         manager.beacon().show(255);
+        acc.tick();
 
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
