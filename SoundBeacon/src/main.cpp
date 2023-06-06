@@ -9,6 +9,38 @@
 
 using namespace std::literals::chrono_literals;
 
+bool readButton(BlackBox::Manager& manager) {
+    auto& ldc = manager.ldc();
+    static int pressureNow;
+    static int pressureLast;
+    static bool firstRead = true;
+    bool pressNow;
+
+    if (firstRead) {
+        ldc.syncChannels();
+        pressureLast = ldc[0] + ldc[1] + ldc[2] + ldc[3];
+        firstRead = false;
+    }
+
+    ldc.syncChannels();
+
+    pressureNow = ldc[0] + ldc[1] + ldc[2] + ldc[3];
+
+    int diff = pressureNow - pressureLast;
+    if (diff < 0) {
+        diff = 0;
+    }
+
+    if (diff >= 600000) {
+        pressNow = true;
+    } else {
+        pressNow = false;
+    }
+    pressureLast = pressureNow;
+
+    return pressNow;
+}
+
 uint32_t get_i2s_val(i2s_port_t i2s_num) {
     constexpr std::size_t n = 1;
     std::size_t read = 0;
@@ -34,9 +66,38 @@ struct sound_accum {
 
     int32_t sum = 0;
 
-    int32_t decay = 128;
-    int32_t trigger_val = 2000;
-    int32_t max_sum = 32000;
+    int32_t decay = 256;
+    int32_t trigger_val = 6000;
+    int32_t max_sum = 256000;
+};
+
+using tp = std::chrono::steady_clock::time_point;
+
+struct door_handler {
+
+    bool silent_time() {
+        return opened_at + 4s > std::chrono::steady_clock::now();
+    }
+
+    void tick(bool is_triggered) {
+        if (silent_time()) {
+            return;
+        }
+        if (is_triggered) {
+            door.close();
+            opened = false;
+        } else {
+            if (!opened) {
+                door.open();
+                opened_at = std::chrono::steady_clock::now();
+                opened = true;
+            }
+        }
+    }
+
+    bool opened = false;
+    tp opened_at;
+    BlackBox::Door& door;
 };
 
 extern "C" {
@@ -48,7 +109,6 @@ void app_main() {
     manager.init();
 
     auto& power = manager.power();
-    // power.turnOff();
     power.turnOn();
     power.turnOn5V();
     power.turnOnLDC();
@@ -66,38 +126,48 @@ void app_main() {
 
     // oh ocme on, why is Beacon<>::Perimeter _private_?
     auto perim = manager.beacon().perimeter();
-    auto side = manager.beacon().top();
-
-    for (unsigned i = 0; i < side.count(); i++) {
-        side[i] = Rgb(0, 0, 0);
-    }
+    auto top = manager.beacon().top();
+    BlackBox::Door& door = manager.door(0);
 
     int32_t last = get_i2s_val(i2s_num);
 
+    door_handler dh { false, std::chrono::steady_clock::now(), door };
     sound_accum acc;
     while (true) {
         int32_t n = get_i2s_val(i2s_num);
         int32_t v = n - last;
         last = n;
 
-        //std::cout << v << std::endl;
-
         int v2 = abs(v);
         v2 = std::min(v2, 3200);
+
         acc.push(v2);
 
         int m = acc.sum / 64;
 
-        //std::cout << acc.sum << "\t" << m << "\t" << v2 << std::endl;
+        std::cout << acc.sum << "\t" << m << "\t" << v2 << "\t" << acc.is_triggered() << "\t" << dh.opened_at.time_since_epoch().count() << std::endl;
 
         for (unsigned i = 0; i < perim.count(); i++) {
-            perim[i] = Rgb(acc.is_triggered() ? 255 : 0, std::min(m, 255), 0);
+            perim[i] = Rgb(acc.is_triggered() ? 255 : 0, acc.is_triggered() ? 0 : std::min(m, 255),
+                dh.silent_time() ? 255 : 0);
+        }
+        int top_n = top.count() * acc.sum / acc.max_sum;
+        for (unsigned i = 0; i < top.count(); i++) {
+            bool fired = acc.is_triggered() && i < top_n;
+            top[i] = Rgb(fired ? 255 : 0, 0, 0);
         }
 
-        manager.beacon().show(255);
+        manager.beacon().show(16);
         acc.tick();
+        dh.tick(acc.is_triggered());
 
-        vTaskDelay(1 / portTICK_PERIOD_MS);
+        if (!power.usbConnected()) {
+            door.close();
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            power.turnOff();
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 }
