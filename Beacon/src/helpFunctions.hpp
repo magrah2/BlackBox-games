@@ -47,6 +47,12 @@ enum Color {
     Error, 
 };
 
+static inline void delay(unsigned ms) {
+    vTaskDelay(ms / portTICK_PERIOD_MS);
+}
+
+int readDoors();
+int waitForDoors(TickType_t timeout = 0);
 void menu();
 
 extern int g_lightIntensity;
@@ -56,8 +62,8 @@ void showColorPerim(Rgb rgb);
 void showColorTop(Rgb rgb);
 void clearAll();
 
-void showGameColors();
-void showGameColors2();
+void showGameColorsPerim();
+void showGameColorsTop();
 
 void showError();
 void showEmptyBattery();

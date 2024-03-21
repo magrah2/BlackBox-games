@@ -21,11 +21,32 @@ int lightIntensity(Rgb rgb) {
     return g_lightIntensity;
 }
 
+int readDoors() {
+    for (int i = 0; i < 4; i++) {
+        if (doors[i].tamperCheck()) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int waitForDoors(TickType_t timeout) {
+    TickType_t start = xTaskGetTickCount();
+    while (timeout == 0 || xTaskGetTickCount() - start < timeout) {
+        CHECK_USB();
+        int read = readDoors();
+        if (read != -1)
+            return read;
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+    return -1;
+}
+
 void menu() {
     updateAverage(manager.touchpad().calculate());
     openAllDoors();
     vTaskDelay(500 / portTICK_PERIOD_MS);
-    showGameColors();
+    showGameColorsPerim();
 
     for (int floor = 0;; floor++) {
         if (floor == games.size() / 3 + (games.size() % 3 != 0))
@@ -44,7 +65,7 @@ void menu() {
             }
             g_lightIntensity = lightIntensity(gameColors[floor]);
             beacon.top().clear();
-            showGameColors();
+            showGameColorsPerim();
             vTaskDelay(10 / portTICK_PERIOD_MS);
         } while (flag);
     }
@@ -53,13 +74,18 @@ void menu() {
 void showEmptyBattery() {
     showError();
 }
+
+void show(int intensity) {
+    beacon.show(std::max(intensity, 5));
+}
+
 void showBattery() {
 
     int charge = power.batteryPercentage(true);
     int endPoint = 59 * charge / 100;
     beacon.top().drawArc(cGreen, 0, endPoint, ArcType::Clockwise);
     beacon.top().drawArc(cRed, endPoint, 59, ArcType::Clockwise);
-    beacon.show(g_lightIntensity);
+    show(g_lightIntensity);
 }
 
 void charging() {
@@ -67,7 +93,7 @@ void charging() {
     showBattery();
     vTaskDelay(200 / portTICK_PERIOD_MS);
     beacon.clear();
-    beacon.show(g_lightIntensity);
+    show(g_lightIntensity);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
 
@@ -126,13 +152,13 @@ void switching_play_charge() {
 void showColorTop(Rgb rgb) {
 
     beacon.top().fill(rgb);
-    beacon.show(g_lightIntensity);
+    show(g_lightIntensity);
 }
 
 void showColorPerim(Rgb rgb) {
 
     beacon.perimeter().fill(rgb);
-    beacon.show(g_lightIntensity);
+    show(g_lightIntensity);
 }
 
 void clearAll() {
@@ -140,12 +166,19 @@ void clearAll() {
     showColorTop(cBlack);
 }
 
-void showGameColors() {
+void showGameColorsPerim() {
 
     for (int i = 0; i < 4; i++) {
         beacon.side(i).fill(gameColors[i]);
     }
-    beacon.show(g_lightIntensity);
+    show(g_lightIntensity);
+}
+
+void showGameColorsTop() {
+    for (int i = 0; i < 4; i++) {
+        beacon.top().drawArc(gameColors[i], i * 15, (i * 15) + 13, ArcType::Clockwise);
+    }
+    show(g_lightIntensity);
 }
 
 void showError() {
@@ -197,7 +230,7 @@ void showPowerOn() {
     clearAll();
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cWhite;
-        beacon.show(g_lightIntensity);
+        show(g_lightIntensity);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
@@ -209,7 +242,7 @@ void showPowerOff() {
 
     for (int i = 0; i < 60; i++) {
         beacon.top()[i] = cBlack;
-        beacon.show(g_lightIntensity);
+        show(g_lightIntensity);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
@@ -255,7 +288,7 @@ void showBeacon(Rgb rgb) {
     static uint16_t pos = 0;
     showColorPerim(cBlack);
     beacon.perimeter()[pos] = rgb;
-    beacon.show(g_lightIntensity);
+    show(g_lightIntensity);
 
     pos++;
 
@@ -286,12 +319,9 @@ bool readButton() {
         diff = 0;
     }
 
-    if (diff >= 600000) {
-        pressNow = true;
-    } else {
-        pressNow = false;
-    }
-    pressureLast = pressureNow;
+    pressNow = diff >= 600000;
+    if (!pressNow)
+        pressureLast = pressureNow;
 
     return pressNow;
 }

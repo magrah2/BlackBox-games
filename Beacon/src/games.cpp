@@ -11,13 +11,73 @@
 using namespace std::literals::chrono_literals;
 using namespace std::chrono;
 
-std::vector<std::function<void()>> games = { lightHouse, multiLightHouse, multiTreasure, ghosts, kingOfTheHill, fillMeInNoTime, mine, trains };
+std::vector<std::function<void()>> games = { lightHouse, multiLightHouse, multiTreasure, ghosts, kingOfTheHill, fillMeInNoTime, mine, trains, pickleMayhem, smartPan };
 
 void gameEnd() {
     closeAllDoors();
     clearAll();
     switching_play_charge();
 }
+
+void timeMachine() {
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    auto& manager = Manager::singleton();
+    auto& beacon = manager.beacon();
+
+    g_lightIntensity = 255;
+
+    openAllDoors();
+
+    int percentage = 0;
+
+    while (percentage < 60) {
+        percentage = 0;
+#ifndef BB_DEBUG
+        if (power.usbConnected()) {
+            switching_play_charge();
+        }
+#endif
+        for (int i = 0; i < 4; i++) {
+            if (doors[i].tamperCheck() || doors[i].isClosed()) {
+                percentage += 15;
+                doors[i].close();
+            }
+        }
+
+        for (int i = 0; i < percentage; i++) {
+            beacon.onTop(i) = cWhite;
+        }
+        showBeacon();
+        // vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+
+    while (!readButton()) {
+        showBeacon();
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    bool toggle = 0;
+    while (!readButton()) {
+        beacon.fill(toggle ? cBlack : cWhite);
+        beacon.show();
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        toggle = !toggle;
+    }
+
+    beacon.fill(cBlack);
+    beacon.show();
+
+    while (true) {
+#ifndef BB_DEBUG
+        if (power.usbConnected()) {
+            switching_play_charge();
+        }
+#endif
+    }
+}
+
 //red game
 void lightHouse() {
     static uint8_t gameNum = 0;
@@ -199,7 +259,7 @@ void multiTreasure() {
     updateAverage(out);
 
     clearAll();
-    showGameColors();
+    showGameColorsPerim();
     showColorTop(gameColors[3]);
     closeAllDoors();
 
@@ -292,7 +352,7 @@ void showState(std::array<unsigned, 4>& states) {
 void kingOfTheHill() {
     std::array<unsigned, 4> states = { 15, 15, 15, 15 };
     int activeColor = -1;
-    showGameColors();
+    showGameColorsPerim();
     vTaskDelay(500 / portTICK_PERIOD_MS);
 
     while (true) {
@@ -356,7 +416,7 @@ void fillMeInNoTime() {
 
         if (state == Init) {
             showColorTop(cGreen);
-            showGameColors();
+            showGameColorsPerim();
             openAllDoors();
             vTaskDelay(300 / portTICK_PERIOD_MS);
             count = 60;
@@ -399,7 +459,7 @@ void fillMeInNoTime() {
                     showColorPerim(cBlack);
                     vTaskDelay(200 / portTICK_PERIOD_MS);
                 }
-                showGameColors();
+                showGameColorsPerim();
                 votes.reset();
             }
         }
@@ -655,8 +715,8 @@ void trains() {
             }
 
             for (int i = 0; i < 4; i++) {
-                beacon.side(i).fill((blink <= 5 && i == direction) ? cWhite : cBlack);
-                beacon.top().drawArc((blink <= 5 && i == direction) ? cWhite : cBlack,
+                beacon.side(i).fill((blink <= 5 && i == (int)direction) ? cWhite : cBlack);
+                beacon.top().drawArc((blink <= 5 && i == (int)direction) ? cWhite : cBlack,
                     i * 15, i * 15 + 15, BlackBox::ArcType::Clockwise);
             }
             beacon.show(g_lightIntensity);
@@ -683,5 +743,161 @@ void trains() {
         }
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
+void pickleMayhem() {
+    auto start = std::chrono::system_clock::now();
+    closeAllDoors();
+
+    std::vector<std::chrono::system_clock::duration> offsets = {
+        10min,
+        25min,
+        18min,
+        30min
+    };
+
+    std::vector<std::chrono::system_clock::duration> starts = {
+        0min,
+        25min,
+        38min,
+        48min,
+        54min,
+        1h + 12min,
+        1h + 19min,
+        1h + 25min,
+        1h + 40min,
+        1h + 59min,
+        2h + 10min
+    };
+
+    std::vector<std::chrono::system_clock::duration> lengths = {
+        5min,
+        1min,
+        2min,
+        1min,
+        5min,
+        2min,
+        1min,
+        5min,
+        7min,
+        5min,
+        10min
+    };
+
+    while (true) {
+        auto now = std::chrono::system_clock::now();
+        auto& man = BlackBox::Manager::singleton();
+        CHECK_USB();
+
+        std::vector<bool> flags = { false,
+            false,
+            false,
+            false };
+
+        for (size_t i = 0; i < starts.size(); i++) {
+            for (int j = 0; j < 4; j++)
+                if (now > offsets[j] + start + starts[i] && now < offsets[j] + start + starts[i] + lengths[i])
+                    flags[j] = true;
+        }
+
+        for (int j = 0; j < 4; j++)
+            if (flags[j])
+                man.door(j).open();
+            else
+                man.door(j).close();
+    }
+}
+
+static Rgb flameTick(Rgb base) {
+    static int intensity = 128;
+
+    int delta = esp_random() % 50 - 25;
+    intensity += delta;
+    intensity = std::min(255, intensity);
+    intensity = std::max(1, intensity);
+
+    base.stretchChannelsEvenly(intensity);
+    return base;
+}
+
+void smartPan() {
+    enum State {
+        Empty,
+        HeatingUp,
+        Cooking,
+        Failed,
+        Done,
+    };
+
+    auto& man = BlackBox::Manager::singleton();
+    int state = Empty;
+    auto cookingStart = steady_clock::now();
+
+    for (int i = 0; i < 4; i++) {
+        beacon.top().fill(cWhite);
+        beacon.show();
+        delay(100);
+        beacon.top().clear();
+        beacon.show();
+        delay(100);
+    }
+
+    man.beacon().top().fill(flameTick(cYellow));
+    showGameColorsTop();
+    openAllDoors();
+    delay(500);
+    int team = waitForDoors();
+    closeAllDoors();
+
+    while (true) {
+        switch (state) {
+        case Empty: {
+            showColorPerim(cBlack);
+            showColorTop(cBlack);
+            closeAllDoors();
+            delay(300);
+            state = HeatingUp;
+            break;
+        }
+
+        case HeatingUp: {
+            showColorTop(flameTick(gameColors[team]));
+            if (readButton()) {
+                state = Cooking;
+                cookingStart = steady_clock::now();
+            }
+            break;
+        }
+
+        case Cooking: {
+            std::size_t progress = duration_cast<milliseconds>(steady_clock::now() - cookingStart).count();
+            std::size_t portion = (progress * beacon.perimeter().count()) / 20000;
+            beacon.perimeter().clear();
+            beacon.perimeter().drawArc(gameColors[team], 7, 7 + portion, ArcType::Clockwise);
+            showColorTop(flameTick(gameColors[team]));
+            if (!readButton())
+                state = Failed;
+            else if (steady_clock::now() - cookingStart >= 20s)
+                state = Done;
+            break;
+        }
+
+        case Failed: {
+            openAllDoors();
+            delay(200);
+            state = Empty;
+            break;
+        }
+
+        case Done: {
+            man.door(0).open();
+            delay(10000);
+            state = Empty;
+            break;
+        }
+        }
+        CHECK_USB();
+        delay(100);
     }
 }
