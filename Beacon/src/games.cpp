@@ -193,14 +193,15 @@ void powerOff() {
 }
 
 void inputing(int button) {
+    const int combination_num = 20;
     static std::vector<int> input;
     auto lastPressTime = steady_clock::now();
 
-    constexpr int combinations[4][10] = {
-        { Y, G, B, Y, R, G, B, B, R, Y },
-        { B, B, G, G, R, Y, Y, G, B, R },
-        { R, Y, Y, B, G, R, Y, B, Y, G },
-        { Y, B, G, Y, R, B, Y, R, G, Y }
+    constexpr int combinations[4][combination_num] = {
+        {R, G, B, Y, G, B, R, G, Y, B, R, Y, R, B, B, G, R, Y, R, G},//{ Y, G, B, Y, R, G, B, B, R, Y, G, B, Y, R, Y, G, R, B, G, Y }, // first is north second is east
+        {B, Y, R, B, G, Y, R, Y, B, G, G, Y, R, B, R, G, Y, B, Y, G},//{ B, R, G, G, R, Y, Y, G, B, R, R, G, B, Y, G, R, B, G, Y, R },
+        {G, Y, R, B, R, G, Y, R, B, Y, B, R, G, R, B, G, B, Y, R, B},//{ R, Y, Y, B, G, R, Y, B, Y, G, Y, R, B, G, B, Y, R, Y, B, G },
+        {Y, R, G, Y, B, R, G, B, Y, R, Y, B, G, R, B, G, Y, B, G, R}//{ Y, B, G, Y, R, B, Y, R, G, Y, R, B, G, G, R, Y, B, B, R, G }
     };
 
     auto start = steady_clock::now();
@@ -234,11 +235,11 @@ void inputing(int button) {
         // }
         button = readButtons();
         // vTaskDelay(400 / portTICK_PERIOD_MS);
-    } while (input.size() < 10);
+    } while (input.size() < combination_num);
 
     for (int i = 0; i < 4; i++) {
         int result = 1;
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < combination_num; j++) {
             result *= (input[j] == combinations[i][j]);
         }
         if (result) {
